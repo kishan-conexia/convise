@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen">
     <!-- Navigation -->
-    <AppNavBar />
+    <AppHeader />
     
     <!-- Hero Section with Reduced Height -->
     <section class="relative min-h-[80vh] flex items-center overflow-hidden pt-16">
@@ -196,6 +196,8 @@
 </template>
 
 <script setup>
+import AppHeader from '~/components/AppHeader.vue';
+
 
 // Meta tags for SEO
 useHead({
