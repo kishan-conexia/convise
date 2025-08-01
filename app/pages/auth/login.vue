@@ -324,7 +324,7 @@ useHead({
 // Redirect if already logged in
 watchEffect(() => {
   if (user.value) {
-    navigateTo("/dashboard/index");
+    navigateTo("/dashboard");
   }
 });
 
