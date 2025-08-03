@@ -39,11 +39,11 @@ export default defineNuxtConfig({
     head: {
       charset: "utf-8",
       viewport: "width=device-width, initial-scale=1",
-      title: "Convise",
+      title: "Convise - Modern Workflow Simplified",
       meta: [
         {
           name: "description",
-          content: "Professional web interface for Convise application",
+          content: "Transform your organization with intelligent workflow automation. Streamline attendance, leaves, payroll, and employee management.",
         },
         { name: "format-detection", content: "telephone=no" },
       ],
