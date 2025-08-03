@@ -24,7 +24,7 @@
           
           <h1 class="text-5xl md:text-7xl font-extrabold mb-8">
             <span class="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
-              Modern HR
+              Modern Workflow
             </span>
             <br>
             <span class="bg-gradient-to-r from-emerald-500 via-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -33,7 +33,7 @@
           </h1>
           
           <p class="text-xl md:text-2xl text-gray-600 mb-12 max-w-4xl mx-auto leading-relaxed">
-            Transform your organization with intelligent HR management. 
+            Transform your organization with intelligent workflow automation. 
             <span class="font-semibold text-gray-800">Streamline attendance, leaves, payroll,</span> 
             and more with our cutting-edge platform.
           </p>

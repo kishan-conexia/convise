@@ -170,7 +170,7 @@
                   />
                   <button
                     class="relative w-full flex items-center space-x-3 px-4 py-3 bg-white/60 backdrop-blur-sm hover:bg-white/80 rounded-xl transition-all duration-200 border border-gray-200/50 hover:border-gray-300/50"
-                    @click="handleDrawerNavigation('/network-monitor')"
+                    @click="handleDrawerNavigation('/dashboard')"
                   >
                     <UIcon
                       name="i-heroicons-signal"
@@ -241,7 +241,7 @@
                     />
                     <button
                       class="relative w-full flex items-center space-x-3 px-4 py-3 bg-white/60 backdrop-blur-sm hover:bg-white/80 rounded-xl transition-all duration-200 border border-gray-200/50 hover:border-gray-300/50"
-                      @click="handleDrawerNavigation('/monthly-attendance')"
+                      @click="handleDrawerNavigation('/dashboard')"
                     >
                       <UIcon
                         name="i-heroicons-calendar-days"
@@ -523,7 +523,7 @@
             <div
               v-if="userProfileStore.hasNetworkMonitorAccess"
               class="group cursor-pointer"
-              @click="navigateTo('/network-monitor')"
+              @click="navigateTo('/dashboard')"
             >
               <div class="relative">
                 <div
@@ -630,7 +630,7 @@
             <div
               v-if="userProfileStore.canAccessMonthlyAttendance"
               class="group cursor-pointer"
-              @click="navigateTo('/monthly-attendance')"
+              @click="navigateTo('/dashboard')"
             >
               <div class="relative">
                 <div

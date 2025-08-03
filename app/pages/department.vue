@@ -540,7 +540,6 @@
 
           <!-- Team Tab - Mobile Optimized -->
           <div v-if="activeTab === 'team'">
-            <!-- Search Bar -->
             <!-- Search Bar - Mobile Responsive -->
             <div class="mb-4 sm:mb-6">
               <UCard class="bg-white/80 backdrop-blur-lg border-0 shadow-lg">
@@ -567,7 +566,7 @@
                   <button
                     v-if="searchQuery"
                     class="absolute right-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
-                    @click="clearSearch"
+                    @click="searchQuery = ''"
                   >
                     <UIcon name="i-heroicons-x-mark" class="h-5 w-5" />
                   </button>

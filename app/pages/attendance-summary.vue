@@ -639,7 +639,13 @@
           </div>
 
           <div class="flex justify-end space-x-3 mt-4">
-            <UButton variant="outline" class="text-red-500" @click="cancelComment"> Cancel </UButton>
+            <UButton
+              variant="outline"
+              class="text-red-500"
+              @click="cancelComment"
+            >
+              Cancel
+            </UButton>
             <UButton :disabled="!commentText.trim()" @click="updateComment">
               Save
             </UButton>
@@ -713,14 +719,14 @@ const router = useRouter();
 const toast = useToast();
 
 // Use the store
-const userProfileStore = useUserProfileStore()
+const userProfileStore = useUserProfileStore();
 const attendanceSummaryStore = useAttendanceSummaryStore();
 
 // ✅ Initialize user profile store if not already done
 onMounted(async () => {
   // Ensure user profile is initialized
   if (!userProfileStore.initialized) {
-    await userProfileStore.initialize()
+    await userProfileStore.initialize();
   }
 
   // Initialize attendance summary store
@@ -1378,10 +1384,12 @@ const commentText = ref("");
 const commentRecord = ref(null);
 const isEditingComment = ref(false);
 const showDropdown = ref(false);
-const dropdownRef = ref(null)
+const dropdownRef = ref(null);
 
 // Computed property to check if user can access monthly attendance comments (exactly like Flutter)
-const canAccessAttendanceComment = computed(() => userProfileStore.canAccessAttendanceComment);
+const canAccessAttendanceComment = computed(
+  () => userProfileStore.canAccessAttendanceComment
+);
 
 // Enhanced function to show detailed attendance information - similar to Flutter
 const showAttendanceDetails = (day) => {
