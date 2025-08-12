@@ -48,9 +48,9 @@
     <div v-else class="relative min-h-screen">
       <!-- Header -->
       <div
-        class="relative bg-white/90 backdrop-blur-lg border-b border-gray-200/50 shadow-lg"
+        class="relative bg-white/90 backdrop-blur-lg border-b border-gray-200/50 shadow-lg z-40"
       >
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 relative z-10">
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-4">
               <!-- Back Button -->
@@ -73,38 +73,115 @@
                 >
                   Team Requests
                 </h1>
-                <p class="text-gray-600">
-                  Manage team leave and regularization requests
-                </p>
+                <p class="text-gray-600">{{ formatMonth(selectedMonth) }}</p>
               </div>
             </div>
-            <!-- Team Member Count & Refresh Button -->
-            <!-- <div class="flex items-center space-x-4">
-              <div class="text-sm text-gray-500 hidden sm:block">
-                {{ teamMembers.length }} team member(s)
-              </div>
+            <div class="flex items-center space-x-3">
+              <!-- Month Selector (existing) -->
               <UButton
                 size="md"
                 variant="outline"
                 color="blue"
                 class="bg-blue-50/80 backdrop-blur-sm hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-300 shadow-sm hover:shadow-md transition-all duration-200 font-medium"
-                :loading="isRefreshing"
-                @click="refreshData"
+                @click="openMonthPicker"
               >
                 <UIcon
-                  name="i-heroicons-arrow-path"
+                  name="i-heroicons-calendar"
                   class="h-5 w-5 mr-2 text-blue-600"
                 />
-                <span class="text-blue-700">Refresh</span>
+                <span class="text-blue-700">Select Month</span>
               </UButton>
-            </div> -->
+
+              <!-- Status Filter - NEW -->
+              <div class="relative z-50 status-dropdown-container">
+                <UButton
+                  size="md"
+                  variant="outline"
+                  color="purple"
+                  class="bg-purple-50/80 backdrop-blur-sm hover:bg-purple-100 border-2 border-purple-200 hover:border-purple-300 shadow-sm hover:shadow-md transition-all duration-200 font-medium"
+                  @click="showStatusDropdown = !showStatusDropdown"
+                >
+                  <UIcon
+                    name="i-heroicons-funnel"
+                    class="h-5 w-5 mr-2 text-purple-600"
+                  />
+                  <span class="text-purple-700">
+                    {{
+                      statusFilterOptions.find(
+                        (opt) => opt.value === selectedStatus
+                      )?.label || "Filter Status"
+                    }}
+                  </span>
+                  <UIcon
+                    :name="
+                      showStatusDropdown
+                        ? 'i-heroicons-chevron-up'
+                        : 'i-heroicons-chevron-down'
+                    "
+                    class="h-4 w-4 ml-2 text-purple-600"
+                  />
+                </UButton>
+
+                <!-- Status Dropdown -->
+                <transition
+                  enter-active-class="transition ease-out duration-200"
+                  enter-from-class="opacity-0 scale-95"
+                  enter-to-class="opacity-100 scale-100"
+                  leave-active-class="transition ease-in duration-150"
+                  leave-from-class="opacity-100 scale-100"
+                  leave-to-class="opacity-0 scale-95"
+                >
+                  <div
+                    v-if="showStatusDropdown"
+                    class="absolute right-0 mt-2 w-64 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-xl z-[70]"
+                    @click.stop
+                  >
+                    <div class="p-2">
+                      <div
+                        v-for="option in statusFilterOptions"
+                        :key="option.value"
+                        :class="[
+                          'flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-gray-50',
+                          selectedStatus === option.value
+                            ? 'bg-purple-50 border border-purple-200'
+                            : '',
+                        ]"
+                        @click="selectStatus(option.value)"
+                      >
+                        <div class="flex items-center space-x-3">
+                          <UIcon
+                            :name="option.icon"
+                            class="h-5 w-5 text-gray-600"
+                          />
+                          <span class="font-medium text-gray-700">{{
+                            option.label
+                          }}</span>
+                        </div>
+                        <div
+                          v-if="statusCounts[option.value] > 0"
+                          :class="[
+                            'px-2 py-1 rounded-full text-xs font-bold border',
+                            getStatusBadgeClass(option.value),
+                          ]"
+                        >
+                          {{ statusCounts[option.value] }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </transition>
+              </div>
+
+              <!-- Export Button (existing) -->
+              <!-- ... your existing export button ... -->
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 relative z-10">
         <!-- Auto-Trimming Search Bar with v-model.trim -->
-        <div class="mb-4 sm:mb-6">
+        <div class="mb-4 sm:mb-6 relative z-10">
           <UCard class="bg-white/80 backdrop-blur-lg border-0 shadow-lg">
             <div class="relative">
               <input
@@ -116,7 +193,7 @@
                   'py-2.5 text-sm sm:py-3 sm:text-base',
                   'border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20',
                 ]"
-              >
+              />
               <!-- Search Icon -->
               <UIcon
                 name="i-heroicons-magnifying-glass"
@@ -268,7 +345,9 @@
                                 'w-10 h-10 text-sm md:w-12 md:h-12 md:text-lg',
                               ]"
                             >
-                            <span class="text-white font-medium">{{ getInitials(request.profiles?.full_name) }}</span>
+                              <span class="text-white font-medium">{{
+                                getInitials(request.profiles?.full_name)
+                              }}</span>
                             </div>
                           </div>
 
@@ -487,7 +566,9 @@
                                 'w-10 h-10 text-sm md:w-12 md:h-12 md:text-lg',
                               ]"
                             >
-                            <span class="text-white font-medium">{{ getInitials(request.profiles?.full_name) }}</span>
+                              <span class="text-white font-medium">{{
+                                getInitials(request.profiles?.full_name)
+                              }}</span>
                             </div>
                           </div>
 
@@ -720,7 +801,7 @@
                     class="relative flex items-center space-x-4 p-4 bg-white/80 backdrop-blur-lg border border-gray-200/50 rounded-xl"
                   >
                     <div
-                      class="w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg"
+                      class="w-12 h-12 rounded-full bg-gradient-to-r from-emerald-500 to-blue-600 flex items-center justify-center overflow-hidden"
                     >
                       <span class="text-white font-bold text-lg">
                         {{
@@ -1146,6 +1227,105 @@
       </div>
     </transition>
 
+    <!-- Month Picker Modal with Calendar -->
+    <transition name="fade" appear>
+      <div
+        v-if="showMonthPicker"
+        class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        @click.self="showMonthPicker = false"
+      >
+        <transition name="scale" appear>
+          <div
+            v-if="showMonthPicker"
+            class="relative bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-lg"
+          >
+            <!-- Header -->
+            <div
+              class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-white rounded-t-2xl"
+            >
+              <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold">Select Month</h3>
+                <button
+                  class="p-2 hover:bg-white/20 rounded-full transition-colors duration-200"
+                  @click="showMonthPicker = false"
+                >
+                  <UIcon name="i-heroicons-x-mark" class="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Calendar Content -->
+            <div class="p-6">
+              <!-- Year Navigation -->
+              <div class="flex items-center justify-between mb-6">
+                <button
+                  class="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  @click="navigateYear(-1)"
+                  :disabled="calendarYear <= 2025"
+                >
+                  <UIcon
+                    name="i-heroicons-chevron-left"
+                    class="h-5 w-5 text-gray-600"
+                  />
+                </button>
+
+                <h4 class="text-xl font-bold text-gray-800">
+                  {{ calendarYear }}
+                </h4>
+
+                <button
+                  class="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  @click="navigateYear(1)"
+                  :disabled="calendarYear >= new Date().getFullYear()"
+                >
+                  <UIcon
+                    name="i-heroicons-chevron-right"
+                    class="h-5 w-5 text-gray-600"
+                  />
+                </button>
+              </div>
+
+              <!-- Months Grid -->
+              <div class="grid grid-cols-3 gap-3 mb-6">
+                <button
+                  v-for="(month, index) in monthNames"
+                  :key="index"
+                  :class="[
+                    'p-4 rounded-lg text-sm font-medium transition-all duration-200 border-2',
+                    isSelectedMonth(calendarYear, index)
+                      ? 'bg-blue-500 text-white border-blue-500 shadow-md'
+                      : isCurrentMonth(calendarYear, index)
+                      ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                      : isMonthDisabled(calendarYear, index)
+                      ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed opacity-50'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300',
+                  ]"
+                  :disabled="isMonthDisabled(calendarYear, index)"
+                  @click="selectMonth(calendarYear, index)"
+                >
+                  <div class="font-semibold">{{ month.short }}</div>
+                  <div class="text-xs opacity-75">{{ month.full }}</div>
+                </button>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex justify-end space-x-3">
+                <UButton variant="outline" @click="showMonthPicker = false">
+                  Cancel
+                </UButton>
+                <UButton
+                  :disabled="!hasSelectedMonth"
+                  @click="applyMonthSelection"
+                >
+                  Apply
+                </UButton>
+              </div>
+            </div>
+          </div>
+        </transition>
+      </div>
+    </transition>
+
     <!-- Leave Details Modal with Flutter-like Details -->
     <transition name="modal-overlay" appear>
       <div
@@ -1501,6 +1681,20 @@
 </template>
 
 <script setup>
+// Import the formatter utilities
+// import {
+//   formatStatus,
+//   formatDateTime,
+//   formatDate,
+//   formatTime,
+//   formatRegularizationType,
+//   getStatusClasses,
+//   getCardStatusClasses,
+//   getInitials,
+//   getRegularizationTypeIcon,
+//   openLocation
+// } from '~/utils/formatters';
+
 // Page metadata and middleware
 definePageMeta({
   middleware: "auth",
@@ -1519,6 +1713,91 @@ const isProcessing = ref(false);
 const searchQuery = ref("");
 const activeTab = ref("regularizations");
 
+
+// Month picker state
+const showMonthPicker = ref(false);
+const selectedMonth = ref(new Date());
+const calendarYear = ref(new Date().getFullYear());
+const selectedCalendarMonth = ref(null);
+
+// Month names data
+const monthNames = [
+  { short: "Jan", full: "January" },
+  { short: "Feb", full: "February" },
+  { short: "Mar", full: "March" },
+  { short: "Apr", full: "April" },
+  { short: "May", full: "May" },
+  { short: "Jun", full: "June" },
+  { short: "Jul", full: "July" },
+  { short: "Aug", full: "August" },
+  { short: "Sep", full: "September" },
+  { short: "Oct", full: "October" },
+  { short: "Nov", full: "November" },
+  { short: "Dec", full: "December" },
+];
+
+// Add these reactive state variables
+const selectedStatus = ref("all");
+const showStatusDropdown = ref(false);
+
+// Status filter options
+const statusFilterOptions = [
+  {
+    value: "all",
+    label: "All Requests",
+    icon: "i-heroicons-queue-list",
+    count: 0,
+  },
+  {
+    value: "action_required",
+    label: "Action Required",
+    icon: "i-heroicons-exclamation-triangle",
+    count: 0,
+  },
+  { value: "pending", label: "Pending", icon: "i-heroicons-clock", count: 0 },
+  {
+    value: "approved",
+    label: "Approved",
+    icon: "i-heroicons-check-circle",
+    count: 0,
+  },
+  {
+    value: "rejected",
+    label: "Rejected",
+    icon: "i-heroicons-x-circle",
+    count: 0,
+  },
+  {
+    value: "cancelled",
+    label: "Cancelled",
+    icon: "i-heroicons-minus-circle",
+    count: 0,
+  },
+];
+
+// Add these functions
+const selectStatus = (status) => {
+  selectedStatus.value = status;
+  showStatusDropdown.value = false;
+};
+
+const getStatusBadgeClass = (status) => {
+  switch (status) {
+    case "action_required":
+      return "bg-orange-100 text-orange-700 border-orange-200";
+    case "pending":
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    case "approved":
+      return "bg-green-100 text-green-700 border-green-200";
+    case "rejected":
+      return "bg-red-100 text-red-700 border-red-200";
+    case "cancelled":
+      return "bg-gray-100 text-gray-700 border-gray-200";
+    default:
+      return "bg-blue-100 text-blue-700 border-blue-200";
+  }
+};
+
 // Modal state
 const showRegularizationModal = ref(false);
 const showLeaveModal = ref(false);
@@ -1533,6 +1812,17 @@ const regularizationRequests = ref([]);
 const leaveRequests = ref([]);
 const departmentsCache = ref(new Map());
 const employeeDepartmentMap = ref(new Map());
+
+// Computed properties
+const hasSelectedMonth = computed(() => selectedCalendarMonth.value !== null);
+
+const maxMonth = computed(() => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}`;
+});
 
 // CORRECTED: Tab configuration with proper count properties
 const tabs = computed(() => [
@@ -1550,15 +1840,15 @@ const tabs = computed(() => [
   },
 ]);
 
-// CORRECTED: Count computations using proper function names
+// Update existing count computations to use filtered data
 const pendingRegularizationCount = computed(() => {
-  return regularizationRequests.value.filter(
+  return statusFilteredRegularizationRequests.value.filter(
     (req) => req.status === "pending" && needsRegularizationAction(req)
   ).length;
 });
 
 const pendingLeaveCount = computed(() => {
-  return leaveRequests.value.filter(
+  return statusFilteredLeaveRequests.value.filter(
     (req) => req.status === "pending" && needsLeaveAction(req)
   ).length;
 });
@@ -1605,24 +1895,182 @@ const filteredLeaveRequests = computed(() => {
   });
 });
 
-// CORRECTED: Sorted requests using proper sorting function
+// Add these computed properties
+const statusFilteredRegularizationRequests = computed(() => {
+  if (selectedStatus.value === "all") {
+    return filteredRegularizationRequests.value;
+  }
+
+  return filteredRegularizationRequests.value.filter((request) => {
+    switch (selectedStatus.value) {
+      case "action_required":
+        return needsRegularizationAction(request);
+      case "pending":
+        return request.status === "pending";
+      case "approved":
+        return request.status === "approved";
+      case "rejected":
+        return request.status === "rejected";
+      case "cancelled":
+        return request.status === "cancelled" || request.status === "withdrawn";
+      default:
+        return true;
+    }
+  });
+});
+
+const statusFilteredLeaveRequests = computed(() => {
+  if (selectedStatus.value === "all") {
+    return filteredLeaveRequests.value;
+  }
+
+  return filteredLeaveRequests.value.filter((request) => {
+    switch (selectedStatus.value) {
+      case "action_required":
+        return needsLeaveAction(request);
+      case "pending":
+        return request.status === "pending";
+      case "approved":
+        return request.status === "approved";
+      case "rejected":
+        return request.status === "rejected";
+      case "cancelled":
+        return request.status === "cancelled" || request.status === "withdrawn";
+      default:
+        return true;
+    }
+  });
+});
+
+// Update existing sorted computed properties to use status filtered data
 const sortedRegularizationRequests = computed(() => {
   return sortRequestsByActionNeeded(
-    filteredRegularizationRequests.value,
+    statusFilteredRegularizationRequests.value,
     needsRegularizationAction
   );
 });
 
 const sortedLeaveRequests = computed(() => {
   return sortRequestsByActionNeeded(
-    filteredLeaveRequests.value,
+    statusFilteredLeaveRequests.value,
     needsLeaveAction
   );
+});
+
+// Add computed property for status counts
+const statusCounts = computed(() => {
+  const regularizationRequests = filteredRegularizationRequests.value;
+  const leaveRequests = filteredLeaveRequests.value;
+  const allRequests = [...regularizationRequests, ...leaveRequests];
+
+  return {
+    all: allRequests.length,
+    action_required: allRequests.filter((req) =>
+      activeTab.value === "regularizations"
+        ? needsRegularizationAction(req)
+        : needsLeaveAction(req)
+    ).length,
+    pending: allRequests.filter((req) => req.status === "pending").length,
+    approved: allRequests.filter((req) => req.status === "approved").length,
+    rejected: allRequests.filter((req) => req.status === "rejected").length,
+    cancelled: allRequests.filter(
+      (req) => req.status === "cancelled" || req.status === "withdrawn"
+    ).length,
+  };
 });
 
 // Functions
 const goBack = () => {
   router.back();
+};
+
+const formatMonth = (date) => {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+};
+
+// Month picker functions
+const openMonthPicker = () => {
+  // Initialize calendar with currently selected month when modal opens
+  calendarYear.value = selectedMonth.value.getFullYear();
+  selectedCalendarMonth.value = {
+    year: selectedMonth.value.getFullYear(),
+    month: selectedMonth.value.getMonth(),
+  };
+  showMonthPicker.value = true;
+};
+
+const navigateYear = (direction) => {
+  const newYear = calendarYear.value + direction;
+  const today = new Date();
+
+  // Ensure we don't go before 2025 or beyond current year
+  if (newYear >= 2025 && newYear <= today.getFullYear()) {
+    calendarYear.value = newYear;
+  }
+};
+
+const selectMonth = (year, monthIndex) => {
+  if (!isMonthDisabled(year, monthIndex)) {
+    selectedCalendarMonth.value = { year, month: monthIndex };
+  }
+};
+
+const isSelectedMonth = (year, monthIndex) => {
+  return (
+    selectedCalendarMonth.value?.year === year &&
+    selectedCalendarMonth.value?.month === monthIndex
+  );
+};
+
+const isCurrentMonth = (year, monthIndex) => {
+  const today = new Date();
+  return year === today.getFullYear() && monthIndex === today.getMonth();
+};
+
+const isMonthDisabled = (year, monthIndex) => {
+  const today = new Date();
+  const monthDate = new Date(year, monthIndex, 1);
+  const maxDate = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  // Disable if month is in the future or before July 2025
+  const minDate = new Date(2025, 6, 1); // July 2025
+  return monthDate > maxDate || monthDate < minDate;
+};
+
+const applyMonthSelection = async () => {
+  if (selectedCalendarMonth.value) {
+    const { year, month } = selectedCalendarMonth.value;
+    selectedMonth.value = new Date(year, month, 1);
+    showMonthPicker.value = false;
+
+    // FIXED: Set loading state when changing months
+    isLoading.value = true;
+
+    try {
+      // Reload data with new month filter
+      await Promise.all([loadRegularizationRequests(), loadLeaveRequests()]);
+
+      toast.add({
+        title: "Month updated",
+        description: `Showing requests for ${formatMonth(selectedMonth.value)}`,
+        color: "green",
+      });
+    } catch (error) {
+      console.error("Error loading month data:", error);
+      toast.add({
+        title: "Error loading data",
+        description: "Failed to load requests for selected month",
+        color: "red",
+      });
+    } finally {
+      // FIXED: Always reset loading state and selection
+      isLoading.value = false;
+      selectedCalendarMonth.value = null;
+    }
+  }
 };
 
 const refreshData = async () => {
@@ -1704,6 +2152,12 @@ const loadRegularizationRequests = async () => {
 
   const teamMemberIds = teamMembers.value.map((member) => member.id);
 
+  // Calculate date range for the selected month
+  const year = selectedMonth.value.getFullYear();
+  const month = selectedMonth.value.getMonth();
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0); // Last day of the month
+
   const { data: response } = await supabase
     .from("attendance_regularizations")
     .select(
@@ -1713,6 +2167,8 @@ const loadRegularizationRequests = async () => {
     `
     )
     .in("employee_id", teamMemberIds)
+    .gte("created_at", formatDateForSQL(monthStart))
+    .lte("created_at", formatDateForSQL(monthEnd) + " 23:59:59")
     .order("created_at", { ascending: false });
 
   regularizationRequests.value = response || [];
@@ -1722,6 +2178,12 @@ const loadLeaveRequests = async () => {
   if (teamMembers.value.length === 0) return;
 
   const teamMemberIds = teamMembers.value.map((member) => member.id);
+
+  // Calculate date range for the selected month
+  const year = selectedMonth.value.getFullYear();
+  const month = selectedMonth.value.getMonth();
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0); // Last day of the month
 
   const { data: response } = await supabase
     .from("leave_applications")
@@ -1733,6 +2195,8 @@ const loadLeaveRequests = async () => {
     `
     )
     .in("employee_id", teamMemberIds)
+    .gte("created_at", formatDateForSQL(monthStart))
+    .lte("created_at", formatDateForSQL(monthEnd) + " 23:59:59")
     .order("created_at", { ascending: false });
 
   leaveRequests.value = response || [];
@@ -1936,14 +2400,12 @@ const getApprovedLevels = (request) => {
 };
 
 // Modal functions
-// Update your existing showRegularizationDetails function
 const showRegularizationDetails = (request) => {
   selectedRegularization.value = request;
   selectedLevel.value = calculateApprovalLevel(request.employee_id); // Calculate level when showing modal
   showRegularizationModal.value = true;
 };
 
-// Update your existing showLeaveDetails function
 const showLeaveDetails = (request) => {
   selectedLeave.value = request;
   selectedLevelForLeave.value = calculateApprovalLevel(request.employee_id); // Calculate level when showing modal
@@ -1962,7 +2424,7 @@ const canTakeAction = (request) => {
 // Updated function to allow higher-level managers to take action
 const canTakeManagerAction = (request) => {
   const status = request.status || "pending";
-  const totalLevels = request.approval_levels || 0;
+  // const totalLevels = request.approval_levels || 0;
   const employeeId = request.employee_id;
 
   // Check if in terminal state
@@ -2002,68 +2464,47 @@ const canTakeManagerAction = (request) => {
 };
 
 // CORRECTED: Single approval/rejection functions
-const approveRequest = async (request) => {
+const approveRequest = async (request, comments = "") => {
   if (!request) return;
 
   isProcessing.value = true;
   try {
+    const level = calculateApprovalLevel(request.employee_id);
+
     if (activeTab.value === "leave") {
-      // Handle leave approval - CORRECTED field names
-      const level = calculateApprovalLevel(request.employee_id);
-      const updateData = {
-        [`level_${level}_status`]: "approved",
-        [`level_${level}_approver_id`]: userProfileStore.profile?.id, // ✅ CORRECTED: approver_id (not approved_by)
-        [`level_${level}_action_at`]: new Date().toISOString(), // ✅ CORRECTED: action_at (not approved_at)
-      };
-
-      // If this is the final level, update overall status
-      if (level >= (request.approval_levels || 1)) {
-        updateData.status = "approved";
-        updateData.final_approved_at = new Date().toISOString(); // ✅ This field exists
-      }
-
-      const { error } = await supabase
-        .from("leave_applications")
-        .update(updateData)
-        .eq("id", request.id);
+      // Handle leave approval using RPC
+      const { data, error } = await supabase.rpc("handle_leave_approval", {
+        leave_application_id: request.id,
+        manager_id: userProfileStore.profile?.id,
+        action: "approved",
+        comments: comments,
+        current_level: level,
+      });
 
       if (error) throw error;
 
-      toast.add({
-        title: "Leave request approved",
-        color: "green",
+      handleRpcResponse(data, async () => {
+        showLeaveModal.value = false;
+        await loadData();
       });
     } else {
-      // Handle regularization approval - CORRECTED field names
-      const level = calculateApprovalLevel(request.employee_id);
-      const updateData = {
-        [`level_${level}_status`]: "approved",
-        [`level_${level}_approver_id`]: userProfileStore.profile?.id, // ✅ CORRECTED: approver_id (not approved_by)
-        [`level_${level}_action_at`]: new Date().toISOString(), // ✅ CORRECTED: action_at (not approved_at)
-      };
-
-      // If this is the final level, update overall status
-      if (level >= (request.approval_levels || 1)) {
-        updateData.status = "approved";
-        updateData.final_approved_at = new Date().toISOString(); // ✅ This field exists
-      }
-
-      const { error } = await supabase
-        .from("attendance_regularizations")
-        .update(updateData)
-        .eq("id", request.id);
+      // Handle regularization approval using RPC
+      const { data, error } = await supabase.rpc("_handle_approval_action", {
+        regularization_id: request.id,
+        manager_id: userProfileStore.profile?.id,
+        action: "approved",
+        comments: comments,
+        current_level: level,
+        attendance_id_param: request.attendance_id,
+      });
 
       if (error) throw error;
 
-      toast.add({
-        title: "Regularization request approved",
-        color: "green",
+      handleRpcResponse(data, async () => {
+        showRegularizationModal.value = false;
+        await loadData();
       });
     }
-
-    showRegularizationModal.value = false;
-    showLeaveModal.value = false;
-    await loadData();
   } catch (error) {
     console.error("Error approving request:", error);
     toast.add({
@@ -2076,58 +2517,47 @@ const approveRequest = async (request) => {
   }
 };
 
-const rejectRequest = async (request) => {
+const rejectRequest = async (request, comments = "") => {
   if (!request) return;
 
   isProcessing.value = true;
   try {
-    if (activeTab.value === "leave") {
-      // Handle leave rejection - CORRECTED field names
-      const level = calculateApprovalLevel(request.employee_id);
-      const updateData = {
-        [`level_${level}_status`]: "rejected",
-        [`level_${level}_approver_id`]: userProfileStore.profile?.id, // ✅ CORRECTED: approver_id (not approved_by)
-        [`level_${level}_action_at`]: new Date().toISOString(), // ✅ CORRECTED: action_at (not approved_at)
-        status: "rejected",
-      };
+    const level = calculateApprovalLevel(request.employee_id);
 
-      const { error } = await supabase
-        .from("leave_applications")
-        .update(updateData)
-        .eq("id", request.id);
+    if (activeTab.value === "leave") {
+      // Handle leave rejection using RPC
+      const { data, error } = await supabase.rpc("handle_leave_approval", {
+        leave_application_id: request.id,
+        manager_id: userProfileStore.profile?.id,
+        action: "rejected",
+        comments: comments,
+        current_level: level,
+      });
 
       if (error) throw error;
 
-      toast.add({
-        title: "Leave request rejected",
-        color: "orange",
+      handleRpcResponse(data, async () => {
+        showLeaveModal.value = false;
+        await loadData();
       });
     } else {
-      // Handle regularization rejection - CORRECTED field names
-      const level = calculateApprovalLevel(request.employee_id);
-      const updateData = {
-        [`level_${level}_status`]: "rejected",
-        [`level_${level}_approver_id`]: userProfileStore.profile?.id, // ✅ CORRECTED: approver_id (not approved_by)
-        [`level_${level}_action_at`]: new Date().toISOString(), // ✅ CORRECTED: action_at (not approved_at)
-        status: "rejected",
-      };
-
-      const { error } = await supabase
-        .from("attendance_regularizations")
-        .update(updateData)
-        .eq("id", request.id);
+      // Handle regularization rejection using RPC
+      const { data, error } = await supabase.rpc("_handle_approval_action", {
+        regularization_id: request.id,
+        manager_id: userProfileStore.profile?.id,
+        action: "rejected",
+        comments: comments,
+        current_level: level,
+        attendance_id_param: request.attendance_id,
+      });
 
       if (error) throw error;
 
-      toast.add({
-        title: "Regularization request rejected",
-        color: "orange",
+      handleRpcResponse(data, async () => {
+        showRegularizationModal.value = false;
+        await loadData();
       });
     }
-
-    showRegularizationModal.value = false;
-    showLeaveModal.value = false;
-    await loadData();
   } catch (error) {
     console.error("Error rejecting request:", error);
     toast.add({
@@ -2140,135 +2570,94 @@ const rejectRequest = async (request) => {
   }
 };
 
-// Utility functions
-const getInitials = (fullName) => {
-  if (!fullName) return "?";
-  const names = fullName.split(" ");
-  return names.length > 1 ? names[0][0] + names[1][0] : names[0][0];
+const cancelLeaveRequest = async (leaveAppId) => {
+  isProcessing.value = true;
+  try {
+    const { data, error } = await supabase.rpc("cancel_leave_application", {
+      leave_application_id: leaveAppId,
+    });
+
+    if (error) throw error;
+
+    handleRpcResponse(data, async () => {
+      showLeaveModal.value = false;
+      await loadData();
+    });
+  } catch (error) {
+    console.error("Error cancelling leave request:", error);
+    toast.add({
+      title: "Error cancelling leave request",
+      description: error.message,
+      color: "red",
+    });
+  } finally {
+    isProcessing.value = false;
+  }
+};
+
+const cancelRegularizationRequest = async (regId) => {
+  isProcessing.value = true;
+  try {
+    const { data, error } = await supabase.rpc(
+      "cancel_attendance_regularization",
+      {
+        regularization_id: regId,
+      }
+    );
+
+    if (error) throw error;
+
+    handleRpcResponse(data, async () => {
+      showRegularizationModal.value = false;
+      await loadData();
+    });
+  } catch (error) {
+    console.error("Error cancelling regularization request:", error);
+    toast.add({
+      title: "Error cancelling regularization request",
+      description: error.message,
+      color: "red",
+    });
+  } finally {
+    isProcessing.value = false;
+  }
+};
+
+const handleRpcResponse = (response, successCallback) => {
+  if (response && response.length > 0) {
+    const result = response[0];
+    const statusCode = result.status_code;
+    const message = result.message;
+
+    if (statusCode >= 200 && statusCode < 300) {
+      toast.add({
+        title: message,
+        color: "green",
+      });
+      if (successCallback) successCallback();
+    } else if (statusCode === 409) {
+      toast.add({
+        title: message,
+        color: "red",
+      });
+    } else {
+      toast.add({
+        title: message,
+        color: "red",
+      });
+    }
+  } else {
+    toast.add({
+      title: "Operation completed successfully",
+      color: "green",
+    });
+    if (successCallback) successCallback();
+  }
 };
 
 const getEmployeeDepartment = (employeeId) => {
   const member = teamMembers.value.find((m) => m.id === employeeId);
   return member?.departments?.name || "Unknown Department";
-};
-
-const formatRegularizationType = (type) => {
-  if (!type) return "N/A";
-
-  const types = {
-    late_arrival: "Late Arrival",
-    missed_swipe: "Missed Swipe",
-    outdoor_client_visit: "Outdoor/Client Visit",
-    other: "Other",
-  };
-
-  return (
-    types[type] ||
-    type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-  );
-};
-
-const getStatusClasses = (status) => {
-  switch (status?.toLowerCase()) {
-    case "approved":
-      return "bg-emerald-100 text-emerald-800 border border-emerald-200 font-medium px-2.5 py-0.5 rounded-full text-xs";
-    case "rejected":
-      return "bg-red-100 text-red-800 border border-red-200 font-medium px-2.5 py-0.5 rounded-full text-xs";
-    case "pending":
-      return "bg-amber-100 text-amber-800 border border-amber-200 font-medium px-2.5 py-0.5 rounded-full text-xs";
-    case "cancelled":
-      return "bg-slate-100 text-slate-800 border border-slate-200 font-medium px-2.5 py-0.5 rounded-full text-xs";
-    case "withdrawn":
-      return "bg-slate-100 text-slate-800 border border-slate-200 font-medium px-2.5 py-0.5 rounded-full text-xs";
-    default:
-      return "bg-gray-100 text-gray-800 border border-gray-200 font-medium px-2.5 py-0.5 rounded-full text-xs";
-  }
-};
-
-const getCardStatusClasses = (status) => {
-  switch (status?.toLowerCase()) {
-    case "approved":
-      return "bg-green-50/60 border-green-100"; // Light green with subtle border
-    case "rejected":
-      return "bg-red-50/60 border-red-100"; // Light red with subtle border
-    case "pending":
-      return "bg-yellow-50/60 border-orange-100"; // Light orange with subtle border
-    case "cancelled":
-      return "bg-gray-50/60 border-gray-100"; // Light gray with subtle border
-    case "withdrawn":
-      return "bg-gray-50/60 border-gray-100"; // Light gray with subtle border
-    default:
-      return "bg-gray-50/40 border-gray-100"; // Default light gray
-  }
-};
-
-// const getStatusColor = (status) => {
-//   switch (status?.toLowerCase()) {
-//     case "approved":
-//       return "green";
-//     case "rejected":
-//       return "red";
-//     case "pending":
-//       return "yellow";
-//     case "cancelled":
-//       return "gray";
-//     case "withdrawn":
-//       return "gray";
-//     default:
-//       return "gray";
-//   }
-// };
-
-const formatStatus = (status) => {
-  if (!status) return "Unknown";
-  return status.charAt(0).toUpperCase() + status.slice(1);
-};
-
-const formatDateTime = (dateTime) => {
-  if (!dateTime) return "N/A";
-
-  try {
-    const date = new Date(dateTime);
-    return date.toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch {
-    return "Invalid date";
-  }
-};
-
-const formatDate = (date) => {
-  if (!date) return "N/A";
-
-  try {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return "Invalid date";
-  }
-};
-
-const formatTime = (dateTime) => {
-  if (!dateTime) return "N/A";
-
-  try {
-    const date = new Date(dateTime);
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch {
-    return "Invalid time";
-  }
 };
 
 // Initialize store and load data
@@ -2299,7 +2688,23 @@ onMounted(async () => {
   } finally {
     isLoading.value = false;
   }
+
+  // Properly attach the click outside handler for status dropdown
+  const handleClickOutside = (event) => {
+    const dropdownContainer = event.target.closest('.status-dropdown-container');
+    
+    if (showStatusDropdown.value && !dropdownContainer) {
+      showStatusDropdown.value = false;
+    }
+  };
+
+  document.addEventListener("click", handleClickOutside);
+
+  onBeforeUnmount(() => {
+    document.removeEventListener("click", handleClickOutside);
+  });
 });
+
 
 // Add this function to your existing script setup section
 const getApprovalLevelStatus = (request, level) => {
@@ -2307,22 +2712,6 @@ const getApprovalLevelStatus = (request, level) => {
   const status = request[`level_${level}_status`];
   if (!status || status === "") return "pending";
   return status;
-};
-
-// Additional utility functions for Flutter-like functionality
-const getRegularizationTypeIcon = (type) => {
-  switch (type?.toLowerCase()) {
-    case "late_arrival":
-      return "i-heroicons-clock";
-    case "missed_swipe":
-      return "i-heroicons-finger-print";
-    case "outdoor_client_visit":
-      return "i-heroicons-map-pin";
-    case "other":
-      return "i-heroicons-exclamation-triangle";
-    default:
-      return "i-heroicons-clock";
-  }
 };
 
 const hasAdditionalDetails = (request) => {
@@ -2334,27 +2723,6 @@ const hasAdditionalDetails = (request) => {
     request.is_holiday ||
     request.remarks
   );
-};
-
-const openLocation = (location) => {
-  // Handle location opening - you can implement this to open maps
-  if (location) {
-    // Check if it's coordinates (lat,lng format)
-    if (location.includes(",")) {
-      const [lat, lng] = location.split(",").map((coord) => coord.trim());
-      if (!isNaN(lat) && !isNaN(lng)) {
-        // Open coordinates in maps
-        const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-        window.open(url, "_blank");
-        return;
-      }
-    }
-    // Treat as address
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      location
-    )}`;
-    window.open(url, "_blank");
-  }
 };
 
 // Page metadata

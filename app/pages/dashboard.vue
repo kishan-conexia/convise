@@ -241,7 +241,7 @@
                     />
                     <button
                       class="relative w-full flex items-center space-x-3 px-4 py-3 bg-white/60 backdrop-blur-sm hover:bg-white/80 rounded-xl transition-all duration-200 border border-gray-200/50 hover:border-gray-300/50"
-                      @click="handleDrawerNavigation('/dashboard')"
+                      @click="handleDrawerNavigation('/monthly-attendance')"
                     >
                       <UIcon
                         name="i-heroicons-calendar-days"
@@ -630,7 +630,7 @@
             <div
               v-if="userProfileStore.canAccessMonthlyAttendance"
               class="group cursor-pointer"
-              @click="navigateTo('/dashboard')"
+              @click="navigateTo('/monthly-attendance')"
             >
               <div class="relative">
                 <div

@@ -619,7 +619,7 @@
                           @error="$event.target.style.display = 'none'"
                         >
                         <span v-else class="text-white text-sm font-medium">
-                          {{ getEmployeeInitial(employee) }}
+                          {{ getInitials(employee.full_name) }}
                         </span>
                       </div>
 
@@ -696,7 +696,7 @@
                             @error="$event.target.style.display = 'none'"
                           >
                           <span v-else class="text-white font-medium">
-                            {{ getEmployeeInitial(employee) }}
+                            {{ getInitials(employee.full_name) }}
                           </span>
                         </div>
 
@@ -835,7 +835,7 @@
                     @error="onAvatarError"
                   >
                   <span v-else class="text-white text-xl sm:text-2xl font-bold">
-                    {{ getEmployeeInitial(selectedEmployee) }}
+                    {{ getInitials(selectedEmployee.full_name) }}
                   </span>
                 </div>
                 <div class="flex-1">
@@ -1089,12 +1089,6 @@ const tabs = [
 // Special departments for NOC teams (matching Flutter logic)
 const specialDepartments = new Set([101, 1011, 1012, 1013]);
 
-// Functions
-// Enhanced function to handle both avatar images and initials
-const getEmployeeInitial = (employee) => {
-  if (!employee) return "";
-  return (employee.full_name || employee.email || "").charAt(0).toUpperCase();
-};
 
 // New function to check if avatar URL is valid
 const hasValidAvatar = (employee) => {

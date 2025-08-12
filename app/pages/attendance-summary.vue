@@ -713,7 +713,6 @@ definePageMeta({
 });
 
 // Composables
-// const user = useSupabaseUser();
 const supabase = useSupabaseClient();
 const router = useRouter();
 const toast = useToast();
@@ -760,12 +759,16 @@ const employeeCode = computed(
 const managerLevel = computed(() => attendanceSummaryStore.currentManagerLevel);
 const managerId = computed(() => attendanceSummaryStore.currentManagerId);
 const joiningDate = computed(() => attendanceSummaryStore.currentJoiningDate);
+
 // Flutter-equivalent state variables
 const loading = ref(false);
 const isSubmitting = ref(false);
 const focusedDay = ref(new Date());
 const selectedDay = ref(new Date());
 const currentTime = ref(new Date());
+
+// FIXED: Add consistent date reference
+const todayDateOnly = ref(new Date());
 
 // Modal state
 const showAttendanceModal = ref(false);
@@ -823,7 +826,7 @@ const isCurrentOrFutureMonth = computed(() => {
   );
 });
 
-// Helper functions - exactly like Flutter
+// FIXED: Helper functions with consistent date handling
 
 // Normalize date function - exactly like Flutter _normalizeDate
 const normalizeDate = (date) => {
@@ -902,12 +905,15 @@ const getCurrentTime = async () => {
   }
 };
 
-// Load data function - exactly like Flutter _loadData
+// FIXED: Load data function with consistent date handling
 const loadData = async () => {
   loading.value = true;
 
   try {
     currentTime.value = await getCurrentTime();
+    // FIXED: Set consistent today date reference
+    todayDateOnly.value = normalizeDate(currentTime.value);
+
     focusedDay.value = new Date(currentTime.value);
     selectedDay.value = new Date(currentTime.value);
 
@@ -929,27 +935,27 @@ const loadData = async () => {
   }
 };
 
-// Load attendance data - exactly like Flutter _loadAttendanceData
+// FIXED: Load attendance data with consistent date formatting
 const loadAttendanceData = async (month) => {
-  const startOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
-  const endOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+
+  const startOfMonth = new Date(year, monthIndex, 1);
+  const endOfMonth = new Date(year, monthIndex + 1, 0);
 
   const { data } = await supabase
     .from("attendance")
     .select("*")
     .eq("employee_id", employeeId.value)
-    .or(
-      `date.gte.${startOfMonth.toISOString().split("T")[0]},date.lte.${
-        endOfMonth.toISOString().split("T")[0]
-      }`
-    );
+    .gte("date", formatDateForSQL(startOfMonth))
+    .lte("date", formatDateForSQL(endOfMonth));
 
   attendanceRecords.value = data || [];
 
   // Build attendance map for calendar - exactly like Flutter
   attendanceMap.value.clear();
   for (const record of attendanceRecords.value) {
-    const recordDate = normalizeDate(new Date(record.date));
+    const recordDate = normalizeDate(new Date(record.date + "T00:00:00"));
     attendanceMap.value.set(recordDate.getTime(), getAttendanceStatus(record));
   }
 };
@@ -965,10 +971,13 @@ const loadHolidays = async (month) => {
   holidays.value = data || [];
 };
 
-// Load summary data - exactly like Flutter _loadSummaryData
+// FIXED: Load summary data with consistent date handling
 const loadSummaryData = async (month) => {
-  const startOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
-  const endOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+
+  const startOfMonth = new Date(year, monthIndex, 1);
+  const endOfMonth = new Date(year, monthIndex + 1, 0);
 
   // Get work schedule for the employee
   const { data: workScheduleData } = await supabase
@@ -998,15 +1007,15 @@ const loadSummaryData = async (month) => {
     .eq("employee_id", employeeId.value)
     .eq("status", "approved")
     .or(
-      `start_date.lte.${endOfMonth.toISOString().split("T")[0]},end_date.gte.${
-        startOfMonth.toISOString().split("T")[0]
-      }`
+      `start_date.lte.${formatDateForSQL(
+        endOfMonth
+      )},end_date.gte.${formatDateForSQL(startOfMonth)}`
     );
 
   leaveDates.value = [];
   for (const leave of leaveData || []) {
-    const startDate = new Date(leave.start_date);
-    const endDate = new Date(leave.end_date);
+    const startDate = new Date(leave.start_date + "T00:00:00");
+    const endDate = new Date(leave.end_date + "T00:00:00");
 
     for (
       let date = new Date(startDate);
@@ -1025,7 +1034,7 @@ const loadSummaryData = async (month) => {
     .eq("status", "approved");
 
   optionalHolidayDates.value = (optionalHolidayData || []).map((e) =>
-    normalizeDate(new Date(e.selected_date))
+    normalizeDate(new Date(e.selected_date + "T00:00:00"))
   );
 
   // Calculate working days and attendance summary - exactly like Flutter
@@ -1035,7 +1044,8 @@ const loadSummaryData = async (month) => {
   let halfDay = 0;
   let onLeave = 0;
 
-  const today = normalizeDate(currentTime.value);
+  // FIXED: Use consistent today reference
+  const today = todayDateOnly.value;
 
   for (
     let day = new Date(startOfMonth);
@@ -1069,7 +1079,7 @@ const loadSummaryData = async (month) => {
     // Check if it's a holiday
     const isHoliday = holidays.value.some(
       (h) =>
-        normalizeDate(new Date(h.holiday_date)).getTime() ===
+        normalizeDate(new Date(h.holiday_date + "T00:00:00")).getTime() ===
         normalizedDay.getTime()
     );
     if (isHoliday) {
@@ -1083,16 +1093,17 @@ const loadSummaryData = async (month) => {
       workingDays++;
     }
 
+    // FIXED: Use consistent date comparison for absence marking
     if (
       !attendanceMap.value.has(normalizedDay.getTime()) &&
-      normalizedDay.getTime() < normalizeDate(currentTime.value).getTime() &&
+      normalizedDay.getTime() < today.getTime() &&
       workingWeekdays.value.includes(weekdayName)
     ) {
       attendanceMap.value.set(normalizedDay.getTime(), "absent");
 
       // Add to records if needed elsewhere
       attendanceRecords.value.push({
-        date: normalizedDay.toISOString().split("T")[0],
+        date: formatDateForSQL(normalizedDay),
         employee_id: employeeId.value,
         status: "absent",
         punch_in: null,
@@ -1103,12 +1114,8 @@ const loadSummaryData = async (month) => {
 
     // Find attendance record
     const record = attendanceRecords.value.find((r) => {
-      const recordDate = new Date(r.date);
-      return (
-        recordDate.getFullYear() === day.getFullYear() &&
-        recordDate.getMonth() === day.getMonth() &&
-        recordDate.getDate() === day.getDate()
-      );
+      const recordDate = normalizeDate(new Date(r.date + "T00:00:00"));
+      return recordDate.getTime() === normalizedDay.getTime();
     });
 
     // Check if weekend (non-working day) - exactly like Flutter
@@ -1130,16 +1137,13 @@ const loadSummaryData = async (month) => {
       attendanceMap.value.set(normalizedDay.getTime(), "weekend");
     }
 
-    if (
-      normalizedDay.getTime() === today.getTime() ||
-      normalizedDay.getTime() > today.getTime()
-    )
-      continue;
+    // FIXED: Use consistent date comparison for future date check
+    if (normalizedDay.getTime() >= today.getTime()) continue;
 
     if (!record || record.isEmpty) {
-      // No attendance record
+      // FIXED: Use consistent date comparison instead of millisecond arithmetic
       if (
-        day.getTime() < currentTime.value.getTime() - 24 * 60 * 60 * 1000 &&
+        normalizedDay.getTime() < today.getTime() &&
         workingWeekdays.value.includes(weekdayName)
       ) {
         absent++;
@@ -1173,26 +1177,21 @@ const loadSummaryData = async (month) => {
   buildCalendar();
 };
 
-// Build calendar
+// FIXED: Build calendar with consistent date handling
 const buildCalendar = () => {
-  const lastDay = new Date(
-    focusedDay.value.getFullYear(),
-    focusedDay.value.getMonth() + 1,
-    0
-  );
+  const year = focusedDay.value.getFullYear();
+  const month = focusedDay.value.getMonth();
+  const lastDay = new Date(year, month + 1, 0);
 
   const days = [];
-  const todayNormalized = normalizeDate(currentTime.value);
+  // FIXED: Use consistent today reference
+  const todayNormalized = todayDateOnly.value;
 
   // Generate only the days of the current month (instead of 42 days)
   for (let day = 1; day <= lastDay.getDate(); day++) {
-    const currentDate = new Date(
-      focusedDay.value.getFullYear(),
-      focusedDay.value.getMonth(),
-      day
-    );
-
+    const currentDate = new Date(year, month, day);
     const normalizedCurrentDate = normalizeDate(currentDate);
+
     const isCurrentMonth = true; // Always true since we're only generating current month days
     const isToday =
       normalizedCurrentDate.getTime() === todayNormalized.getTime();
@@ -1200,18 +1199,14 @@ const buildCalendar = () => {
 
     // Find the actual record for this day
     const record = attendanceRecords.value.find((r) => {
-      const recordDate = new Date(r.date);
-      return (
-        recordDate.getFullYear() === currentDate.getFullYear() &&
-        recordDate.getMonth() === currentDate.getMonth() &&
-        recordDate.getDate() === currentDate.getDate()
-      );
+      const recordDate = normalizeDate(new Date(r.date + "T00:00:00"));
+      return recordDate.getTime() === normalizedCurrentDate.getTime();
     });
 
     days.push({
       date: new Date(currentDate),
       dayNumber: currentDate.getDate(),
-      dateString: normalizedCurrentDate.toISOString().split("T")[0],
+      dateString: formatDateForSQL(normalizedCurrentDate),
       isCurrentMonth,
       isToday,
       status,
@@ -1222,10 +1217,14 @@ const buildCalendar = () => {
   calendarDays.value = days;
 };
 
-// Load data for month - exactly like Flutter _loadDataForMonth
+// FIXED: Load data for month with consistent date handling
 const loadDataForMonth = async (month) => {
   loading.value = true;
   try {
+    // FIXED: Update today reference when changing months
+    const currentServerTime = await getCurrentTime();
+    todayDateOnly.value = normalizeDate(currentServerTime);
+
     await Promise.all([loadAttendanceData(month), loadHolidays(month)]);
     await loadSummaryData(month);
   } catch (e) {
@@ -1255,11 +1254,6 @@ const nextMonth = async () => {
 const goBack = () => {
   router.back();
 };
-
-// Clear store data when component is unmounted
-// onUnmounted(() => {
-//   attendanceSummaryStore.clearEmployeeData()
-// })
 
 // UI helper functions
 const getCalendarDayClass = (day) => {
@@ -1391,7 +1385,7 @@ const canAccessAttendanceComment = computed(
   () => userProfileStore.canAccessAttendanceComment
 );
 
-// Enhanced function to show detailed attendance information - similar to Flutter
+// FIXED: Enhanced function to show detailed attendance information with consistent date handling
 const showAttendanceDetails = (day) => {
   if (!day) return;
 
@@ -1423,8 +1417,8 @@ const showAttendanceDetails = (day) => {
     };
   }
 
-  // Check if selected date is today
-  const today = normalizeDate(currentTime.value);
+  // FIXED: Use consistent today reference
+  const today = todayDateOnly.value;
   const selectedDate = normalizeDate(day.date);
   const isSelectedDateToday = selectedDate.getTime() === today.getTime();
 
@@ -1434,7 +1428,7 @@ const showAttendanceDetails = (day) => {
 
   // Check if it's a holiday
   const isHoliday = holidays.value.some((h) => {
-    const holidayDate = normalizeDate(new Date(h.holiday_date));
+    const holidayDate = normalizeDate(new Date(h.holiday_date + "T00:00:00"));
     return holidayDate.getTime() === selectedDate.getTime();
   });
 
