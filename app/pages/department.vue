@@ -1051,12 +1051,12 @@ const subDepartmentCount = computed(() => {
   ).length;
 });
 
-const departmentOptions = computed(() =>
-  managedDepartments.value.map((dept) => ({
-    label: dept.name,
-    value: dept.id.toString(),
-  }))
-);
+// const departmentOptions = computed(() =>
+//   managedDepartments.value.map((dept) => ({
+//     label: dept.name,
+//     value: dept.id.toString(),
+//   }))
+// );
 
 // Flatten hierarchy for simplified rendering
 const flattenedHierarchy = computed(() => {
@@ -1553,10 +1553,10 @@ const formatDepartmentType = (type) => {
 };
 
 // Truncate text helper
-const truncateText = (text, maxLength) => {
-  if (!text) return "";
-  return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
-};
+// const truncateText = (text, maxLength) => {
+//   if (!text) return "";
+//   return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
+// };
 
 const toggleExpand = (deptId) => {
   if (expandedNodes.value.has(deptId)) {
@@ -1579,10 +1579,10 @@ const collapseAll = () => {
   }
 };
 
-const viewManagerDetails = (manager) => {
-  selectedEmployee.value = manager;
-  showEmployeeModal.value = true;
-};
+// const viewManagerDetails = (manager) => {
+//   selectedEmployee.value = manager;
+//   showEmployeeModal.value = true;
+// };
 
 const onDepartmentChange = () => {
   const dept = managedDepartments.value.find(

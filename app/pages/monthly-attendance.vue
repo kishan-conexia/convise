@@ -576,7 +576,9 @@ const summaryHeaders = [
   { code: "W", field: "total_weekend" },
   { code: "CW", field: "total_comp_w" },
   { code: "CO", field: "total_comp_off" },
-];
+  { code: "H", field: "total_holiday" },
+  
+]
 
 // FIXED: Consistent date utilities
 const getDateOnly = (date) => {
@@ -640,6 +642,8 @@ const getSummaryColumnClasses = (code, isHeader = false) => {
     W: `bg-gray-100/80 text-gray-800 border-gray-200 hover:bg-gray-200/60 ${baseClasses}`,
     CW: `bg-teal-100/80 text-teal-800 border-teal-200 hover:bg-teal-200/60 ${baseClasses}`,
     CO: `bg-indigo-100/80 text-indigo-800 border-indigo-200 hover:bg-indigo-200/60 ${baseClasses}`,
+    H: `bg-purple-100/80 text-purple-800 border-purple-200 hover:bg-purple-200/60 ${baseClasses}`,
+
   };
 
   return (
@@ -683,7 +687,7 @@ const buildDayHeaders = () => {
       tooltip: date.toDateString(),
       isFuture,
       isToday,
-      dateOnly, // Add this for easier comparison later
+      dateOnly, //for easier comparison later
     });
   }
 
@@ -835,6 +839,7 @@ const processAttendanceData = (employees, attendance, actualEndDate) => {
       total_weekend: 0,
       total_comp_w: 0,
       total_comp_off: 0,
+      total_holiday: 0,
     });
 
     // Initialize all days as empty
@@ -913,6 +918,9 @@ const updateStatusTotals = (employee, status) => {
     case "comp-off":
       employee.total_comp_off++;
       break;
+      case "holiday":
+      employee.total_holiday++;
+      break;
     default:
       employee.total_absent++;
   }
@@ -973,7 +981,7 @@ const exportCSV = () => {
     });
 
     // Add summary headers
-    csvContent += "Present,Absent,Leave,Half Day,Weekend,Comp-W,Comp-Off\n";
+    csvContent += "Present,Absent,Leave,Half Day,Weekend,Comp-W,Comp-Off,Holiday\n";
 
     // Add data rows
     filteredAttendanceData.value.forEach((employee) => {
@@ -991,7 +999,7 @@ const exportCSV = () => {
       });
 
       // Add totals
-      csvContent += `${employee.total_present},${employee.total_absent},${employee.total_leave},${employee.total_half_day},${employee.total_weekend},${employee.total_comp_w},${employee.total_comp_off}\n`;
+      csvContent += `${employee.total_present},${employee.total_absent},${employee.total_leave},${employee.total_half_day},${employee.total_weekend},${employee.total_comp_w},${employee.total_comp_off},${employee.total_holiday}\n`;
     });
 
     // Create and download file

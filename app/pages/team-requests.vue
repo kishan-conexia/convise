@@ -193,7 +193,7 @@
                   'py-2.5 text-sm sm:py-3 sm:text-base',
                   'border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20',
                 ]"
-              />
+              >
               <!-- Search Icon -->
               <UIcon
                 name="i-heroicons-magnifying-glass"
@@ -1260,8 +1260,8 @@
               <div class="flex items-center justify-between mb-6">
                 <button
                   class="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  @click="navigateYear(-1)"
                   :disabled="calendarYear <= 2025"
+                  @click="navigateYear(-1)"
                 >
                   <UIcon
                     name="i-heroicons-chevron-left"
@@ -1275,8 +1275,8 @@
 
                 <button
                   class="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  @click="navigateYear(1)"
                   :disabled="calendarYear >= new Date().getFullYear()"
+                  @click="navigateYear(1)"
                 >
                   <UIcon
                     name="i-heroicons-chevron-right"

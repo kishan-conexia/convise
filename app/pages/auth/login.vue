@@ -407,7 +407,7 @@ const handleLogin = async () => {
       // Input is employee_code, look up the email
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("email")
+        .select("email, web_access") // Add web_access to the select
         .eq("employee_code", identifier)
         .maybeSingle();
 
@@ -451,11 +451,23 @@ const handleLogin = async () => {
         return;
       }
 
+      // FIXED: Check web_access during employee code lookup
+      if (profileData.web_access === false) {
+        toast.add({
+          title: "Access Denied",
+          description: "You are not authorized to access the web application. Please contact your administrator.",
+          color: "red",
+          icon: "i-heroicons-shield-exclamation",
+          timeout: 7000,
+        });
+        return;
+      }
+
       emailToUse = profileData.email;
     }
 
     // Sign in with Supabase using the resolved email
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
       email: emailToUse,
       password: password,
     });
@@ -505,6 +517,43 @@ const handleLogin = async () => {
         });
       }
     } else {
+      // FIXED: Additional web_access check for email login
+      if (emailRegex.test(identifier)) {
+        // If user logged in with email, we need to check web_access separately
+        const { data: userProfile, error: profileCheckError } = await supabase
+          .from("profiles")
+          .select("web_access")
+          .eq("id", authData.user.id)
+          .single();
+
+        if (profileCheckError) {
+          console.error("Profile check error:", profileCheckError);
+          // Sign out the user since we can't verify their web access
+          await supabase.auth.signOut();
+          toast.add({
+            title: "Access Verification Failed",
+            description: "Unable to verify your access permissions. Please try again.",
+            color: "red",
+            icon: "i-heroicons-exclamation-triangle",
+            timeout: 5000,
+          });
+          return;
+        }
+
+        if (userProfile?.web_access === false) {
+          // Sign out the user immediately
+          await supabase.auth.signOut();
+          toast.add({
+            title: "Access Denied",
+            description: "You are not authorized to access the web application. Please contact your administrator.",
+            color: "red",
+            icon: "i-heroicons-shield-exclamation",
+            timeout: 7000,
+          });
+          return;
+        }
+      }
+
       // Success message (matching Flutter's success handling)
       toast.add({
         title: "Welcome Back! 🎉",
@@ -524,7 +573,7 @@ const handleLogin = async () => {
     // Handle unexpected errors (matching Flutter's catch-all error handling)
     toast.add({
       title: "Unexpected Error",
-      description: "Close the app completely, restart it, and try again.",
+      description: "restart it, and try again.",
       color: "red",
       icon: "i-heroicons-exclamation-triangle",
       timeout: 5000,
@@ -533,6 +582,7 @@ const handleLogin = async () => {
     loading.value = false;
   }
 };
+
 </script>
 
 <style scoped>

@@ -234,7 +234,10 @@
                 </div>
 
                 <!-- Monthly Attendance (Conditional) -->
-                <div v-if="userProfileStore.canAccessMonthlyAttendance" class="group">
+                <div
+                  v-if="userProfileStore.canAccessMonthlyAttendance"
+                  class="group"
+                >
                   <div class="relative">
                     <div
                       class="absolute -inset-0.5 bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"
@@ -249,6 +252,27 @@
                       />
                       <span class="font-medium text-gray-900"
                         >Monthly Reports</span
+                      >
+                    </button>
+                  </div>
+                </div>
+
+                <!-- LMS (Lead Management) - Conditional -->
+                <div v-if="userProfileStore.canAccessLMS" class="group">
+                  <div class="relative">
+                    <div
+                      class="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-yellow-600 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"
+                    />
+                    <button
+                      class="relative w-full flex items-center space-x-3 px-4 py-3 bg-white/60 backdrop-blur-sm hover:bg-white/80 rounded-xl transition-all duration-200 border border-gray-200/50 hover:border-gray-300/50"
+                      @click="handleDrawerNavigation('/lms')"
+                    >
+                      <UIcon
+                        name="i-heroicons-chart-pie"
+                        class="h-5 w-5 text-amber-600"
+                      />
+                      <span class="font-medium text-gray-900"
+                        >Lead Management</span
                       >
                     </button>
                   </div>
@@ -447,7 +471,8 @@
                         class="h-7 w-7 text-yellow-300 mr-3"
                       />
                       <h2 class="text-2xl md:text-3xl font-bold">
-                        Welcome back, {{ userProfileStore.userName.split(" ")[0] }}! 👋
+                        Welcome back,
+                        {{ userProfileStore.userName.split(" ")[0] }}! 👋
                       </h2>
                     </div>
                     <p class="text-blue-100 text-base md:text-lg mb-4">
@@ -658,6 +683,37 @@
                 </UCard>
               </div>
             </div>
+
+            <!-- LMS (Lead Management) - Conditional -->
+            <div
+              v-if="userProfileStore.canAccessLMS"
+              class="group cursor-pointer"
+              @click="navigateTo('/lms')"
+            >
+              <div class="relative">
+                <div
+                  class="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-yellow-600 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"
+                />
+                <UCard
+                  class="relative bg-white/80 backdrop-blur-lg border-0 shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:scale-105 p-6"
+                >
+                  <div class="text-center">
+                    <div
+                      class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-amber-500 to-yellow-600 rounded-2xl mb-6"
+                    >
+                      <UIcon
+                        name="i-heroicons-chart-pie"
+                        class="h-8 w-8 text-white"
+                      />
+                    </div>
+                    <h4 class="text-xl font-bold text-gray-900 mb-2">
+                      Lead Management
+                    </h4>
+                    <p class="text-gray-600">SPANCO sales pipeline tracking</p>
+                  </div>
+                </UCard>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -743,7 +799,7 @@ const handleSignOut = async () => {
   try {
     // Clear the store when signing out
     userProfileStore.clearProfile();
-    
+
     await supabase.auth.signOut();
     toast.add({
       title: "Logged out successfully",
@@ -769,14 +825,14 @@ const initializeAppState = async () => {
     if (!user.value) {
       throw new Error("No user found.");
     }
-    
+
     // Use the store to fetch user profile
     await userProfileStore.fetchUserProfile(user.value.id);
-    
+
     if (userProfileStore.error) {
       throw new Error(userProfileStore.error);
     }
-    
+
     isLoading.value = false;
   } catch (error) {
     console.error("Failed to initialize app state:", error);
