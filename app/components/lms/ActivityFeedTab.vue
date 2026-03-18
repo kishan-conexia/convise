@@ -57,7 +57,7 @@
       <!-- Filter Chips -->
       <div
         v-if="showFilters"
-        class="bg-white/80 backdrop-blur-lg rounded-lg p-4 space-y-3 border border-gray-200 shadow-lg"
+        class="bg-white/80 backdrop-blur-lg rounded-lg p-4 space-y-3 border border-gray-200 shadow-lg relative z-[60]"
       >
         <!-- ✅ NEW: Date Range Filter -->
         <div>
@@ -174,6 +174,93 @@
           </div>
         </div>
 
+        <!-- ✅ Assigned To (Salesperson) Filter — Searchable Dropdown -->
+        <div v-if="leadStore.salespeople.length > 0">
+          <label class="text-sm font-medium text-gray-700 mb-2 block">
+            Assigned To
+          </label>
+          <div class="relative" ref="salespersonDropdownRef">
+            <UButton
+              size="sm"
+              :variant="leadStore.filters.assignedTo ? 'solid' : 'outline'"
+              :color="leadStore.filters.assignedTo ? 'primary' : 'neutral'"
+              :class="[
+                !leadStore.filters.assignedTo
+                  ? 'bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 border-gray-300'
+                  : '',
+              ]"
+              @click="showSalespersonDropdown = !showSalespersonDropdown"
+            >
+              <UIcon name="i-heroicons-user" class="h-4 w-4 mr-1.5" />
+              <span class="font-medium">
+                {{ leadStore.filters.assignedTo ? getAssignedToName(leadStore.filters.assignedTo) : 'All Sales Managers' }}
+              </span>
+              <UIcon
+                :name="showSalespersonDropdown ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                class="h-3.5 w-3.5 ml-1.5"
+              />
+            </UButton>
+
+            <!-- Dropdown Panel -->
+            <transition
+              enter-active-class="transition ease-out duration-200"
+              enter-from-class="opacity-0 scale-95"
+              enter-to-class="opacity-100 scale-100"
+              leave-active-class="transition ease-in duration-150"
+              leave-from-class="opacity-100 scale-100"
+              leave-to-class="opacity-0 scale-95"
+            >
+              <div
+                v-if="showSalespersonDropdown"
+                class="absolute left-0 mt-2 w-72 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-xl shadow-xl z-[999]"
+                @click.stop
+              >
+                <!-- Search -->
+                <div class="p-2 border-b border-gray-100">
+                  <input
+                    v-model="salespersonSearch"
+                    type="text"
+                    placeholder="Search sales manager..."
+                    class="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                  >
+                </div>
+                <!-- List -->
+                <div class="max-h-60 overflow-y-auto p-1">
+                  <div
+                    v-for="person in filteredSalespeople"
+                    :key="person.id"
+                    :class="[
+                      'flex items-center px-3 py-2 rounded-lg cursor-pointer transition-all duration-150 text-sm',
+                      leadStore.filters.assignedTo === person.id
+                        ? 'bg-emerald-50 text-emerald-800 font-medium'
+                        : 'hover:bg-gray-50 text-gray-700',
+                    ]"
+                    @click="selectSalesperson(person.id)"
+                  >
+                    <span
+                      class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-r from-emerald-500 to-blue-600 text-white text-xs font-bold mr-2 flex-shrink-0"
+                    >
+                      {{ getInitials(person.full_name) }}
+                    </span>
+                    <span class="truncate">{{ person.full_name || 'Unknown' }}</span>
+                    <UIcon
+                      v-if="leadStore.filters.assignedTo === person.id"
+                      name="i-heroicons-check"
+                      class="h-4 w-4 ml-auto text-emerald-600 flex-shrink-0"
+                    />
+                  </div>
+                  <div
+                    v-if="filteredSalespeople.length === 0"
+                    class="text-center py-4 text-sm text-gray-400"
+                  >
+                    No matching sales manager
+                  </div>
+                </div>
+              </div>
+            </transition>
+          </div>
+        </div>
+
         <!-- Clear Filters -->
         <div class="flex justify-end pt-2">
           <UButton
@@ -251,6 +338,21 @@
           <button
             class="ml-1 hover:text-blue-800"
             @click="leadStore.setPriorityFilter(undefined)"
+          >
+            ×
+          </button>
+        </UBadge>
+        <UBadge
+          v-if="leadStore.filters.assignedTo"
+          color="primary"
+          variant="soft"
+          size="sm"
+          class="bg-blue-50"
+        >
+          Assigned: {{ getAssignedToName(leadStore.filters.assignedTo) }}
+          <button
+            class="ml-1 hover:text-blue-800"
+            @click="leadStore.setAssignedToFilter(undefined)"
           >
             ×
           </button>
@@ -444,6 +546,7 @@
 </template>
 
 <script setup lang="ts">
+import { onClickOutside } from '@vueuse/core';
 // ✅ No imports! Everything auto-imported from /utils/lead.ts
 
 const leadStore = useLeadStore();
@@ -464,6 +567,7 @@ const activeFilterCount = computed(() => {
   if (leadStore.filters.stage) count++;
   if (leadStore.filters.status) count++;
   if (leadStore.filters.priority) count++;
+  if (leadStore.filters.assignedTo) count++;
   return count;
 });
 
@@ -497,6 +601,48 @@ function clearAllFilters() {
   leadStore.clearFilters();
   searchQuery.value = "";
   showFilters.value = false;
+}
+
+// ✅ NEW: Assigned-to filter — searchable dropdown state
+const showSalespersonDropdown = ref(false);
+const salespersonDropdownRef = ref(null);
+
+onClickOutside(salespersonDropdownRef, () => {
+  showSalespersonDropdown.value = false;
+});
+const salespersonSearch = ref("");
+
+const filteredSalespeople = computed(() => {
+  const query = salespersonSearch.value.toLowerCase();
+  if (!query) return leadStore.salespeople;
+  return leadStore.salespeople.filter((p) =>
+    (p.full_name || '').toLowerCase().includes(query)
+  );
+});
+
+function selectSalesperson(userId: string) {
+  leadStore.setAssignedToFilter(
+    leadStore.filters.assignedTo === userId ? undefined : userId
+  );
+  showSalespersonDropdown.value = false;
+  salespersonSearch.value = "";
+}
+
+// ✅ NEW: Get salesperson name for active filter badge
+function getAssignedToName(userId: string): string {
+  const person = leadStore.salespeople.find((p) => p.id === userId);
+  return person?.full_name || 'Unknown';
+}
+
+// ✅ NEW: Get initials for avatar
+function getInitials(name: string | null): string {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 }
 
 function openLeadDetail(leadId: number) {

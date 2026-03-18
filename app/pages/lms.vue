@@ -73,20 +73,38 @@
                 >
                   Lead Management System
                 </h1>
-                <p class="text-gray-600">SPANC0 Sales Pipeline</p>
+                <p class="text-gray-600">SPANCO Sales Pipeline</p>
               </div>
             </div>
-            <!-- Refresh Button -->
-            <UButton
-              size="sm"
-              variant="soft"
-              color="primary"
-              :loading="leadStore.isLoading"
-              @click="leadStore.refreshLeads()"
-            >
-              <UIcon name="i-heroicons-arrow-path" class="h-4 w-4 mr-2" />
-              Refresh
-            </UButton>
+            <div class="flex items-center gap-2">
+              <!-- Export Dropdown -->
+              <UDropdownMenu :items="exportMenuItems">
+                <UButton
+                  size="sm"
+                  variant="soft"
+                  color="neutral"
+                  :loading="exportLeads.isExporting.value"
+                >
+                  <UIcon
+                    name="i-heroicons-arrow-down-tray"
+                    class="h-4 w-4 mr-2"
+                  />
+                  Export
+                  <UIcon name="i-heroicons-chevron-down" class="h-3 w-3 ml-1" />
+                </UButton>
+              </UDropdownMenu>
+              <!-- Refresh Button -->
+              <UButton
+                size="sm"
+                variant="soft"
+                color="primary"
+                :loading="leadStore.isLoading"
+                @click="leadStore.refreshLeads()"
+              >
+                <UIcon name="i-heroicons-arrow-path" class="h-4 w-4 mr-2" />
+                Refresh
+              </UButton>
+            </div>
           </div>
         </div>
       </div>
@@ -188,7 +206,7 @@
         <!-- ✅ NEW: Summary Statistics Cards - Row 2: Timeline -->
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <!-- Overdue Leads -->
-          <UCard 
+          <UCard
             class="bg-white/80 backdrop-blur-lg border-0 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
             @click="quickFilterByDate('overdue')"
           >
@@ -209,7 +227,7 @@
           </UCard>
 
           <!-- This Week -->
-          <UCard 
+          <UCard
             class="bg-white/80 backdrop-blur-lg border-0 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
             @click="quickFilterByDate('thisweek')"
           >
@@ -230,7 +248,7 @@
           </UCard>
 
           <!-- Next Week -->
-          <UCard 
+          <UCard
             class="bg-white/80 backdrop-blur-lg border-0 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
             @click="quickFilterByDate('nextweek')"
           >
@@ -251,7 +269,7 @@
           </UCard>
 
           <!-- This Month -->
-          <UCard 
+          <UCard
             class="bg-white/80 backdrop-blur-lg border-0 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
             @click="quickFilterByDate('thismonth')"
           >
@@ -272,16 +290,13 @@
           </UCard>
 
           <!-- Later/No Date -->
-          <UCard 
+          <UCard
             class="bg-white/80 backdrop-blur-lg border-0 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
             @click="quickFilterByDate('later')"
           >
             <div class="flex items-center">
               <div class="p-3 bg-gray-100 rounded-lg">
-                <UIcon
-                  name="i-heroicons-clock"
-                  class="h-6 w-6 text-gray-600"
-                />
+                <UIcon name="i-heroicons-clock" class="h-6 w-6 text-gray-600" />
               </div>
               <div class="ml-4">
                 <p class="text-sm font-medium text-gray-600">Later</p>
@@ -333,69 +348,124 @@
 
 <script setup lang="ts">
 definePageMeta({
-  middleware: 'auth',
-})
+  middleware: "auth",
+});
 
-const leadStore = useLeadStore()
-const toast = useToast()
+const leadStore = useLeadStore();
+const toast = useToast();
+const exportLeads = useExportLeads();
 
 // State - Use string value matching official docs
-const selectedTab = ref('activity')
+const selectedTab = ref("activity");
 
 // Tabs configuration with value property (official API)
 const tabs = [
   {
-    value: 'activity',
-    label: 'Activity Feed',
-    icon: 'i-heroicons-clock',
+    value: "activity",
+    label: "Activity Feed",
+    icon: "i-heroicons-clock",
   },
   {
-    value: 'list',
-    label: 'Lead List',
-    icon: 'i-heroicons-list-bullet',
+    value: "list",
+    label: "Lead List",
+    icon: "i-heroicons-list-bullet",
   },
-]
+];
+
+// Export menu items
+const exportMenuItems = [
+  [
+    {
+      label: "Export All Leads",
+      icon: "i-heroicons-cloud-arrow-down",
+      onSelect: handleExportAll,
+    },
+    {
+      label: "Export Current View",
+      icon: "i-heroicons-funnel",
+      onSelect: handleExportCurrentView,
+    },
+  ],
+];
+
+async function handleExportAll() {
+  try {
+    const count = await exportLeads.exportAllLeads();
+    toast.add({
+      title: "Export Complete",
+      description: `Exported ${count} leads to Excel`,
+      color: "success",
+      icon: "i-heroicons-check-circle",
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    toast.add({
+      title: "Export Failed",
+      description: error.message,
+      color: "error",
+    });
+  }
+}
+
+function handleExportCurrentView() {
+  const leads = leadStore.filteredLeads;
+  if (leads.length === 0) {
+    toast.add({
+      title: "No Data",
+      description: "No leads to export with current filters",
+      color: "warning",
+    });
+    return;
+  }
+  const count = exportLeads.exportCurrentView(leads);
+  toast.add({
+    title: "Export Complete",
+    description: `Exported ${count} leads to Excel`,
+    color: "success",
+    icon: "i-heroicons-check-circle",
+  });
+}
 
 // ✅ NEW: Quick filter by date and switch to activity tab
 function quickFilterByDate(dateFilter: DateFilterType) {
-  leadStore.setDateFilter(dateFilter)
-  selectedTab.value = 'activity'
-  
+  leadStore.setDateFilter(dateFilter);
+  selectedTab.value = "activity";
+
   // Show toast
-  const label = DATE_FILTER_LABELS[dateFilter]
+  const label = DATE_FILTER_LABELS[dateFilter];
   toast.add({
     title: `Filtered by ${label}`,
     description: `Showing leads with ${label.toLowerCase()} closure dates`,
-    color: 'success',
+    color: "success",
     icon: DATE_FILTER_ICONS[dateFilter],
-  })
+  });
 }
 
 // Initialize
 onMounted(async () => {
   try {
-    await leadStore.initialize()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await leadStore.initialize();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    console.error('Error initializing LMS:', error)
+    console.error("Error initializing LMS:", error);
     toast.add({
-      title: 'Error loading leads',
+      title: "Error loading leads",
       description: error.message,
-      color: 'error',
-    })
+      color: "error",
+    });
   }
-})
+});
 
 // Meta
 useHead({
-  title: 'Lead Management - Convise',
+  title: "Lead Management - Convise",
   meta: [
     {
-      name: 'description',
-      content: 'Manage your sales pipeline with SPANC0 methodology',
+      name: "description",
+      content: "Manage your sales pipeline with SPANC0 methodology",
     },
   ],
-})
+});
 </script>
 
 <style scoped>

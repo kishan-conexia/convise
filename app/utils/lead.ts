@@ -252,6 +252,15 @@ export interface LeadFilters {
   status?: LeadStatus
   priority?: Priority
   search?: string
+  assignedTo?: string // UUID of the salesperson
+}
+
+// ✅ NEW: Salesperson (fetched from department hierarchy, not from leads)
+export interface SalesPerson {
+  id: string
+  full_name: string | null
+  employee_code: string | null
+  avatar_url: string | null
 }
 
 export interface LeadSummary {
@@ -274,3 +283,10 @@ export interface DateRanges {
 
 // ✅ NEW: Helper type for date filter counts
 export type DateFilterCounts = Record<Exclude<DateFilterType, 'all'>, number>
+
+// ✅ NEW: Server-side summary counts (fetched independently from pagination)
+export interface ServerSummary {
+  total: number
+  byStatus: Partial<Record<LeadStatus, number>>
+  byDateRange: DateFilterCounts
+}

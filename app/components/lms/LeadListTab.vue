@@ -58,7 +58,7 @@
       </div>
 
       <!-- Quick Filters -->
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-2 relative z-[60]">
         <!-- ✅ NEW: Date Range Filters -->
         <div class="flex items-center gap-2 mr-2">
           <span class="text-xs font-medium text-gray-600">Closure Date:</span>
@@ -99,8 +99,87 @@
           </UButton>
         </div>
 
+        <!-- ✅ Salesperson Filter — Compact Dropdown -->
+        <div
+          v-if="leadStore.salespeople.length > 0"
+          class="border-l border-gray-300 pl-2 flex items-center gap-2 relative"
+          ref="salespersonDropdownRef"
+        >
+          <span class="text-xs font-medium text-gray-600">Assigned:</span>
+          <UButton
+            size="xs"
+            :variant="leadStore.filters.assignedTo ? 'solid' : 'outline'"
+            :color="leadStore.filters.assignedTo ? 'primary' : 'neutral'"
+            :class="!leadStore.filters.assignedTo ? 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300' : ''"
+            @click="showSalespersonDropdown = !showSalespersonDropdown"
+          >
+            <UIcon name="i-heroicons-user" class="h-3 w-3 mr-1" />
+            {{ leadStore.filters.assignedTo ? getAssignedToName(leadStore.filters.assignedTo) : 'All' }}
+            <UIcon
+              :name="showSalespersonDropdown ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+              class="h-3 w-3 ml-1"
+            />
+          </UButton>
+
+          <!-- Dropdown Panel -->
+          <transition
+            enter-active-class="transition ease-out duration-200"
+            enter-from-class="opacity-0 scale-95"
+            enter-to-class="opacity-100 scale-100"
+            leave-active-class="transition ease-in duration-150"
+            leave-from-class="opacity-100 scale-100"
+            leave-to-class="opacity-0 scale-95"
+          >
+            <div
+              v-if="showSalespersonDropdown"
+              class="absolute top-full left-0 mt-2 w-72 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-xl shadow-xl z-[999]"
+              @click.stop
+            >
+              <div class="p-2 border-b border-gray-100">
+                <input
+                  v-model="salespersonSearch"
+                  type="text"
+                  placeholder="Search sales manager..."
+                  class="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                >
+              </div>
+              <div class="max-h-60 overflow-y-auto p-1">
+                <div
+                  v-for="person in filteredSalespeople"
+                  :key="person.id"
+                  :class="[
+                    'flex items-center px-3 py-2 rounded-lg cursor-pointer transition-all duration-150 text-sm',
+                    leadStore.filters.assignedTo === person.id
+                      ? 'bg-emerald-50 text-emerald-800 font-medium'
+                      : 'hover:bg-gray-50 text-gray-700',
+                  ]"
+                  @click="selectSalesperson(person.id)"
+                >
+                  <span
+                    class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-r from-emerald-500 to-blue-600 text-white text-xs font-bold mr-2 flex-shrink-0"
+                  >
+                    {{ getInitials(person.full_name) }}
+                  </span>
+                  <span class="truncate">{{ person.full_name || 'Unknown' }}</span>
+                  <UIcon
+                    v-if="leadStore.filters.assignedTo === person.id"
+                    name="i-heroicons-check"
+                    class="h-4 w-4 ml-auto text-emerald-600 flex-shrink-0"
+                  />
+                </div>
+                <div
+                  v-if="filteredSalespeople.length === 0"
+                  class="text-center py-4 text-sm text-gray-400"
+                >
+                  No matching sales manager
+                </div>
+              </div>
+            </div>
+          </transition>
+        </div>
+
         <UButton
-          v-if="selectedStatus || leadStore.dateFilter !== 'all'"
+          v-if="selectedStatus || leadStore.dateFilter !== 'all' || leadStore.filters.assignedTo"
           size="xs"
           variant="ghost"
           color="neutral"
@@ -359,6 +438,7 @@
 </template>
 
 <script setup lang="ts">
+import { onClickOutside } from '@vueuse/core';
 const leadStore = useLeadStore()
 
 // Local state
@@ -387,7 +467,49 @@ function toggleDateFilter(range: string) {
 function clearFilters() {
   selectedStatus.value = null
   leadStore.setDateFilter('all')
+  leadStore.setAssignedToFilter(undefined)
   searchQuery.value = ''
+}
+
+// ✅ NEW: Assigned-to filter — searchable dropdown state
+const showSalespersonDropdown = ref(false)
+const salespersonDropdownRef = ref(null);
+
+onClickOutside(salespersonDropdownRef, () => {
+  showSalespersonDropdown.value = false;
+});
+const salespersonSearch = ref('')
+
+const filteredSalespeople = computed(() => {
+  const query = salespersonSearch.value.toLowerCase()
+  if (!query) return leadStore.salespeople
+  return leadStore.salespeople.filter((p) =>
+    (p.full_name || '').toLowerCase().includes(query)
+  )
+})
+
+function selectSalesperson(userId: string) {
+  leadStore.setAssignedToFilter(
+    leadStore.filters.assignedTo === userId ? undefined : userId
+  )
+  showSalespersonDropdown.value = false
+  salespersonSearch.value = ''
+}
+
+function getAssignedToName(userId: string): string {
+  const person = leadStore.salespeople.find((p) => p.id === userId)
+  return person?.full_name || 'Unknown'
+}
+
+// ✅ Get initials for avatar
+function getInitials(name: string | null): string {
+  if (!name) return '?'
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
 }
 
 // Get leads by stage

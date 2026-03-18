@@ -10,7 +10,7 @@ export interface UserProfile {
   avatar_url: string | null;
   ov_username: string | null;
   ov_password: string | null;
-  department_id: number | null;
+  department: number | null;
   is_active: boolean;
   app_access: boolean | null;
   geofencing: boolean | null;
@@ -76,7 +76,7 @@ export const useUserProfileStore = defineStore("userProfile", {
     },
 
     departmentId: (state): number | null => {
-      return state.profile?.department_id || null;
+      return state.profile?.department || null;
     },
 
     // Manager-related getters
@@ -87,14 +87,14 @@ export const useUserProfileStore = defineStore("userProfile", {
     canAccessMonthlyAttendance: (state): boolean => {
       const allowedDepartments = new Set([1, 30, 301, 302, 303]);
       return state.managedDepartments.some((dept) =>
-        allowedDepartments.has(dept.id)
+        allowedDepartments.has(dept.id),
       );
     },
 
     canAccessAttendanceComment: (state): boolean => {
       const allowedDepartments = new Set([1]);
       return state.managedDepartments.some((dept) =>
-        allowedDepartments.has(dept.id)
+        allowedDepartments.has(dept.id),
       );
     },
 
@@ -114,9 +114,9 @@ export const useUserProfileStore = defineStore("userProfile", {
 
     // only manager of these departments is allowed
     canAccessLMS: (state): boolean => {
-      const allowedDepartments = new Set([1, 20]);
+      const allowedDepartments = new Set([1, 20, 2013]);
       return state.managedDepartments.some((dept) =>
-        allowedDepartments.has(dept.id)
+        allowedDepartments.has(dept.id),
       );
     },
 
@@ -155,25 +155,11 @@ export const useUserProfileStore = defineStore("userProfile", {
         if (profileError) throw profileError;
 
         if (!profile) {
-          // Create profile if it doesn't exist
-          const newProfile = {
-            id: targetUserId,
-            email: user.value?.email || "",
-            full_name: user.value?.user_metadata?.full_name || null,
-            avatar_url: user.value?.user_metadata?.avatar_url || null,
-          };
-
-          const { data: createdProfile, error: createError } = await supabase
-            .from("profiles")
-            .insert(newProfile)
-            .select()
-            .single();
-
-          if (createError) throw createError;
-          this.profile = createdProfile;
-        } else {
-          this.profile = profile;
+          this.error = "Profile not found. Please contact your administrator.";
+          return;
         }
+
+        this.profile = profile;
 
         // Fetch managed departments
         const { data: managedDepts, error: deptError } = await supabase
@@ -208,6 +194,7 @@ export const useUserProfileStore = defineStore("userProfile", {
       try {
         const { data, error } = await supabase
           .from("profiles")
+          // @ts-expect-error - Supabase DB types not generated; 'profiles' table type resolves to never
           .update(updates)
           .eq("id", this.profile.id)
           .select()
@@ -215,7 +202,7 @@ export const useUserProfileStore = defineStore("userProfile", {
 
         if (error) throw error;
 
-        this.profile = { ...this.profile, ...data };
+        this.profile = { ...this.profile, ...(data as Partial<UserProfile>) };
       } catch (error: any) {
         console.error("Error updating profile:", error);
         this.error = error.message || "Failed to update profile";
