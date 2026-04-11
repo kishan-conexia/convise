@@ -16,7 +16,7 @@
                   'py-2.5 text-sm sm:py-3 sm:text-base',
                   'border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20',
                 ]"
-              >
+              />
               <!-- Search Icon -->
               <UIcon
                 name="i-heroicons-magnifying-glass"
@@ -78,7 +78,10 @@
               ]"
               @click="toggleDateFilter(range)"
             >
-              <UIcon :name="getDateRangeIcon(range)" class="h-3.5 w-3.5 mr-1.5" />
+              <UIcon
+                :name="getDateRangeIcon(range)"
+                class="h-3.5 w-3.5 mr-1.5"
+              />
               <span class="font-medium">{{ getDateRangeLabel(range) }}</span>
               <span class="ml-1.5 text-xs opacity-75">({{ count }})</span>
             </UButton>
@@ -193,10 +196,18 @@
             >
               <UIcon name="i-heroicons-user" class="h-4 w-4 mr-1.5" />
               <span class="font-medium">
-                {{ leadStore.filters.assignedTo ? getAssignedToName(leadStore.filters.assignedTo) : 'All Sales Managers' }}
+                {{
+                  leadStore.filters.assignedTo
+                    ? getAssignedToName(leadStore.filters.assignedTo)
+                    : "All Sales Managers"
+                }}
               </span>
               <UIcon
-                :name="showSalespersonDropdown ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                :name="
+                  showSalespersonDropdown
+                    ? 'i-heroicons-chevron-up'
+                    : 'i-heroicons-chevron-down'
+                "
                 class="h-3.5 w-3.5 ml-1.5"
               />
             </UButton>
@@ -222,7 +233,7 @@
                     type="text"
                     placeholder="Search sales manager..."
                     class="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                  >
+                  />
                 </div>
                 <!-- List -->
                 <div class="max-h-60 overflow-y-auto p-1">
@@ -242,7 +253,9 @@
                     >
                       {{ getInitials(person.full_name) }}
                     </span>
-                    <span class="truncate">{{ person.full_name || 'Unknown' }}</span>
+                    <span class="truncate">{{
+                      person.full_name || "Unknown"
+                    }}</span>
                     <UIcon
                       v-if="leadStore.filters.assignedTo === person.id"
                       name="i-heroicons-check"
@@ -366,6 +379,15 @@
         Showing {{ leadStore.paginatedLeads.length }} of
         {{ leadStore.filteredLeads.length }} leads
       </p>
+      <div
+        v-if="leadStore.filteredLeads.length > 0"
+        class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm text-sm"
+      >
+        <span class="text-gray-500 font-medium">Estimated Value:</span>
+        <span class="font-bold text-emerald-600"
+          >₹{{ formatCurrency(totalEstimatedValue) }}</span
+        >
+      </div>
     </div>
 
     <!-- Lead Cards -->
@@ -417,11 +439,11 @@
                 <p class="text-xs text-gray-500">{{ lead.lead_number }}</p>
               </div>
               <UBadge
-                :color="getStatusColorSemantic(lead.status)"
+                :color="getStatusColorSemantic(getEffectiveStatus(lead))"
                 variant="soft"
                 size="sm"
               >
-                {{ getStatusLabel(lead.status) }}
+                {{ getStatusLabel(getEffectiveStatus(lead)) }}
               </UBadge>
             </div>
 
@@ -546,7 +568,7 @@
 </template>
 
 <script setup lang="ts">
-import { onClickOutside } from '@vueuse/core';
+import { onClickOutside } from "@vueuse/core";
 // ✅ No imports! Everything auto-imported from /utils/lead.ts
 
 const leadStore = useLeadStore();
@@ -563,7 +585,7 @@ watch(searchQuery, (newValue) => {
 // Active filter count (including date filter)
 const activeFilterCount = computed(() => {
   let count = 0;
-  if (leadStore.dateFilter !== 'all') count++;
+  if (leadStore.dateFilter !== "all") count++;
   if (leadStore.filters.stage) count++;
   if (leadStore.filters.status) count++;
   if (leadStore.filters.priority) count++;
@@ -571,29 +593,36 @@ const activeFilterCount = computed(() => {
   return count;
 });
 
+// Calculate total estimated value for the leads on the current page
+const totalEstimatedValue = computed(() => {
+  return leadStore.paginatedLeads.reduce((sum, lead) => {
+    return sum + (lead.commercial_details?.estimated_value || 0);
+  }, 0);
+});
+
 // Filter toggle functions
 function toggleStageFilter(stage: SpancoStage) {
   leadStore.setStageFilter(
-    leadStore.filters.stage === stage ? undefined : stage
+    leadStore.filters.stage === stage ? undefined : stage,
   );
 }
 
 function toggleStatusFilter(status: LeadStatus) {
   leadStore.setStatusFilter(
-    leadStore.filters.status === status ? undefined : status
+    leadStore.filters.status === status ? undefined : status,
   );
 }
 
 function togglePriorityFilter(priority: Priority) {
   leadStore.setPriorityFilter(
-    leadStore.filters.priority === priority ? undefined : priority
+    leadStore.filters.priority === priority ? undefined : priority,
   );
 }
 
 // ✅ NEW: Date filter toggle
 function toggleDateFilter(range: string) {
   leadStore.setDateFilter(
-    leadStore.dateFilter === range ? 'all' : (range as DateFilterType)
+    leadStore.dateFilter === range ? "all" : (range as DateFilterType),
   );
 }
 
@@ -616,13 +645,13 @@ const filteredSalespeople = computed(() => {
   const query = salespersonSearch.value.toLowerCase();
   if (!query) return leadStore.salespeople;
   return leadStore.salespeople.filter((p) =>
-    (p.full_name || '').toLowerCase().includes(query)
+    (p.full_name || "").toLowerCase().includes(query),
   );
 });
 
 function selectSalesperson(userId: string) {
   leadStore.setAssignedToFilter(
-    leadStore.filters.assignedTo === userId ? undefined : userId
+    leadStore.filters.assignedTo === userId ? undefined : userId,
   );
   showSalespersonDropdown.value = false;
   salespersonSearch.value = "";
@@ -631,16 +660,16 @@ function selectSalesperson(userId: string) {
 // ✅ NEW: Get salesperson name for active filter badge
 function getAssignedToName(userId: string): string {
   const person = leadStore.salespeople.find((p) => p.id === userId);
-  return person?.full_name || 'Unknown';
+  return person?.full_name || "Unknown";
 }
 
 // ✅ NEW: Get initials for avatar
 function getInitials(name: string | null): string {
-  if (!name) return '?';
+  if (!name) return "?";
   return name
-    .split(' ')
+    .split(" ")
     .map((n) => n[0])
-    .join('')
+    .join("")
     .toUpperCase()
     .slice(0, 2);
 }
@@ -660,26 +689,38 @@ function getDateRangeLabel(range: string): string {
 }
 
 function getDateRangeIcon(range: string): string {
-  return DATE_FILTER_ICONS[range as keyof typeof DATE_FILTER_ICONS] || 'i-heroicons-calendar';
+  return (
+    DATE_FILTER_ICONS[range as keyof typeof DATE_FILTER_ICONS] ||
+    "i-heroicons-calendar"
+  );
 }
 
 // ✅ FIXED: Date range color with proper return type
 function getDateRangeColor(
-  range: string, 
-  isActive: boolean
-): "primary" | "secondary" | "success" | "warning" | "error" | "info" | "neutral" {
-  if (isActive) return 'primary';
-  
-  const colors: Record<string, "error" | "warning" | "info" | "success" | "neutral"> = {
-    overdue: 'error',
-    thisweek: 'warning',
-    nextweek: 'info',
-    thismonth: 'success',
-    later: 'neutral',
-  };
-  return colors[range] || 'neutral';
-}
+  range: string,
+  isActive: boolean,
+):
+  | "primary"
+  | "secondary"
+  | "success"
+  | "warning"
+  | "error"
+  | "info"
+  | "neutral" {
+  if (isActive) return "primary";
 
+  const colors: Record<
+    string,
+    "error" | "warning" | "info" | "success" | "neutral"
+  > = {
+    overdue: "error",
+    thisweek: "warning",
+    nextweek: "info",
+    thismonth: "success",
+    later: "neutral",
+  };
+  return colors[range] || "neutral";
+}
 
 // ✅ NEW: Closure date formatting with urgency
 function formatClosureDate(dateString: string): string {
@@ -687,50 +728,56 @@ function formatClosureDate(dateString: string): string {
   const now = new Date();
   const diff = date.getTime() - now.getTime();
   const daysDiff = Math.ceil(diff / (1000 * 60 * 60 * 24));
-  
+
   if (daysDiff < 0) return `Overdue ${Math.abs(daysDiff)}d`;
-  if (daysDiff === 0) return 'Today';
-  if (daysDiff === 1) return 'Tomorrow';
+  if (daysDiff === 0) return "Today";
+  if (daysDiff === 1) return "Tomorrow";
   if (daysDiff <= 7) return `${daysDiff} days`;
-  
-  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
 function getClosureDateIcon(lead: SpancoLead): string {
-  const date = new Date(lead.expected_closure_date || '');
+  const date = new Date(lead.expected_closure_date || "");
   const now = new Date();
-  
-  if (date < now) return 'i-heroicons-exclamation-triangle';
-  
-  const daysDiff = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (daysDiff <= 3) return 'i-heroicons-bell-alert';
-  
-  return 'i-heroicons-calendar-days';
+
+  if (date < now) return "i-heroicons-exclamation-triangle";
+
+  const daysDiff = Math.ceil(
+    (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  if (daysDiff <= 3) return "i-heroicons-bell-alert";
+
+  return "i-heroicons-calendar-days";
 }
 
 function getClosureDateColor(lead: SpancoLead): string {
-  const date = new Date(lead.expected_closure_date || '');
+  const date = new Date(lead.expected_closure_date || "");
   const now = new Date();
-  
-  if (date < now) return 'text-red-600';
-  
-  const daysDiff = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (daysDiff <= 3) return 'text-orange-600';
-  if (daysDiff <= 7) return 'text-yellow-600';
-  
-  return 'text-green-600';
+
+  if (date < now) return "text-red-600";
+
+  const daysDiff = Math.ceil(
+    (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  if (daysDiff <= 3) return "text-orange-600";
+  if (daysDiff <= 7) return "text-yellow-600";
+
+  return "text-green-600";
 }
 
 function getClosureDateTextClass(lead: SpancoLead): string {
-  const date = new Date(lead.expected_closure_date || '');
+  const date = new Date(lead.expected_closure_date || "");
   const now = new Date();
-  
-  if (date < now) return 'text-red-600 font-semibold';
-  
-  const daysDiff = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (daysDiff <= 3) return 'text-orange-600 font-semibold';
-  
-  return 'text-gray-600';
+
+  if (date < now) return "text-red-600 font-semibold";
+
+  const daysDiff = Math.ceil(
+    (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  if (daysDiff <= 3) return "text-orange-600 font-semibold";
+
+  return "text-gray-600";
 }
 
 // Formatting helpers
@@ -771,7 +818,7 @@ const getCustomerTypeLabel = (type: string) =>
 
 // Color mapping to Nuxt UI v4 semantic colors
 function getStageColorSemantic(
-  stage: SpancoStage
+  stage: SpancoStage,
 ):
   | "primary"
   | "secondary"
@@ -803,7 +850,7 @@ function getStageColorSemantic(
 }
 
 function getStatusColorSemantic(
-  status: LeadStatus
+  status: LeadStatus,
 ):
   | "primary"
   | "secondary"
@@ -832,7 +879,7 @@ function getStatusColorSemantic(
 }
 
 function getPriorityColorSemantic(
-  priority: Priority
+  priority: Priority,
 ):
   | "primary"
   | "secondary"

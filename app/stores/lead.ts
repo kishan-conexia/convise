@@ -179,10 +179,10 @@ export const useLeadStore = defineStore("lead", {
         );
       }
 
-      // Status filter
+      // Status filter (uses effective status to handle Flutter data inconsistency)
       if (this.filters.status) {
         filtered = filtered.filter(
-          (lead) => lead.status === this.filters.status,
+          (lead) => getEffectiveStatus(lead) === this.filters.status,
         );
       }
 
@@ -454,12 +454,16 @@ export const useLeadStore = defineStore("lead", {
         };
 
         // Fire all queries in parallel for speed
+        // Note: Flutter app writes 'won'/'lost' to current_stage but may not update status
+        // So we count by current_stage for won/lost to catch both patterns
         const [
           total,
-          active,
-          won,
-          lost,
+          statusActive,
+          statusWon,
+          statusLost,
           onHold,
+          stageWon,
+          stageLost,
           overdue,
           thisweek,
           nextweek,
@@ -473,6 +477,9 @@ export const useLeadStore = defineStore("lead", {
           countWithFilter({ status: "won" }),
           countWithFilter({ status: "lost" }),
           countWithFilter({ status: "on_hold" }),
+          // Also count by current_stage to catch Flutter data
+          countWithFilter({ current_stage: "won" }),
+          countWithFilter({ current_stage: "lost" }),
           // Date range counts
           countByDateRange(undefined, undefined, today),
           countByDateRange(monday, sunday),
@@ -484,12 +491,20 @@ export const useLeadStore = defineStore("lead", {
           countByDateRange(undefined, undefined, undefined, true),
         ]);
 
+        // Combine: won = max(status=won, stage=won), lost = max(status=lost, stage=lost)
+        // active = statusActive minus any that have stage=won/lost but status=active
+        const effectiveWon = Math.max(statusWon, stageWon);
+        const effectiveLost = Math.max(statusLost, stageLost);
+        const wonOverlap = stageWon > statusWon ? stageWon - statusWon : 0;
+        const lostOverlap = stageLost > statusLost ? stageLost - statusLost : 0;
+        const effectiveActive = statusActive - wonOverlap - lostOverlap;
+
         this.serverSummary = {
           total,
           byStatus: {
-            active,
-            won,
-            lost,
+            active: effectiveActive,
+            won: effectiveWon,
+            lost: effectiveLost,
             on_hold: onHold,
           },
           byDateRange: {
@@ -621,6 +636,50 @@ export const useLeadStore = defineStore("lead", {
         this.stageHistory[leadId] = (data as SpancoStageHistory[]) || [];
       } catch (error: any) {
         console.error("Error fetching stage history:", error);
+      }
+    },
+
+    // Update a lead in Supabase and sync local state
+    async updateLead(
+      leadId: number,
+      updates: Record<string, unknown>,
+    ): Promise<boolean> {
+      const supabase = useSupabaseClient();
+
+      try {
+        const { data, error } = await supabase
+          .from("spanco_leads")
+          // @ts-expect-error - Supabase DB types not generated
+          .update({
+            ...updates,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", leadId)
+          .select(
+            `
+            *,
+            profiles:assigned_to (
+              full_name,
+              employee_code,
+              avatar_url
+            )
+          `,
+          )
+          .single();
+
+        if (error) throw error;
+
+        // Patch the local lead in the store
+        const idx = this.leads.findIndex((l) => l.id === leadId);
+        if (idx !== -1 && data) {
+          this.leads[idx] = data as unknown as SpancoLead;
+        }
+
+        return true;
+      } catch (error: any) {
+        console.error("Error updating lead:", error);
+        this.error = error.message || "Failed to update lead";
+        return false;
       }
     },
 

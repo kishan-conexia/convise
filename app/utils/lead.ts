@@ -48,14 +48,16 @@ export enum CustomerType {
 export type DateFilterType = 'all' | 'overdue' | 'thisweek' | 'nextweek' | 'thismonth' | 'later'
 
 // ============= LABEL MAPPINGS =============
-export const STAGE_LABELS = {
+export const STAGE_LABELS: Record<string, string> = {
   suspect: 'Suspect',
   prospect: 'Prospect',
   approach: 'Approach',
   negotiation: 'Negotiation',
   closure: 'Closure',
   order: 'Order',
-} as const
+  won: 'Won',
+  lost: 'Lost',
+}
 
 export const STATUS_LABELS = {
   active: 'Active',
@@ -90,14 +92,26 @@ export const DATE_FILTER_LABELS = {
 } as const
 
 // ============= COLOR MAPPINGS =============
-export const STAGE_COLORS = {
+export const STAGE_COLORS: Record<string, string> = {
   suspect: 'gray',
   prospect: 'blue',
   approach: 'cyan',
   negotiation: 'purple',
   closure: 'orange',
   order: 'green',
-} as const
+  won: 'emerald',
+  lost: 'red',
+}
+
+// ✅ Helper: derive effective status from both current_stage and status fields
+// The Flutter app writes 'won'/'lost' into current_stage but may not update status
+export function getEffectiveStatus(lead: { current_stage: string; status: string }): LeadStatus {
+  // If current_stage is 'won' or 'lost', that takes precedence
+  if (lead.current_stage === 'won') return LeadStatus.WON
+  if (lead.current_stage === 'lost') return LeadStatus.LOST
+  // Otherwise use the status field as-is
+  return lead.status as LeadStatus
+}
 
 export const STATUS_COLORS = {
   active: 'green',

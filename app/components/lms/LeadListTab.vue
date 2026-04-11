@@ -242,11 +242,11 @@
                   {{ lead.customer_info.name }}
                 </h4>
                 <UBadge
-                  :color="getStatusColorSemantic(lead.status)"
+                  :color="getStatusColorSemantic(getEffectiveStatus(lead))"
                   variant="soft"
                   size="xs"
                 >
-                  {{ getStatusLabel(lead.status) }}
+                  {{ getStatusLabel(getEffectiveStatus(lead)) }}
                 </UBadge>
               </div>
 
@@ -379,11 +379,11 @@
               </td>
               <td class="px-4 py-3">
                 <UBadge
-                  :color="getStatusColorSemantic(lead.status)"
+                  :color="getStatusColorSemantic(getEffectiveStatus(lead))"
                   variant="soft"
                   size="xs"
                 >
-                  {{ getStatusLabel(lead.status) }}
+                  {{ getStatusLabel(getEffectiveStatus(lead)) }}
                 </UBadge>
               </td>
               <td class="px-4 py-3">
@@ -517,7 +517,7 @@ function getLeadsByStage(stage: SpancoStage) {
   let leads = leadStore.filteredLeads.filter(lead => lead.current_stage === stage)
   
   if (selectedStatus.value) {
-    leads = leads.filter(lead => lead.status === selectedStatus.value)
+    leads = leads.filter(lead => getEffectiveStatus(lead) === selectedStatus.value)
   }
   
   return leads
@@ -528,7 +528,7 @@ const filteredTableLeads = computed(() => {
   let leads = leadStore.filteredLeads
   
   if (selectedStatus.value) {
-    leads = leads.filter(lead => lead.status === selectedStatus.value)
+    leads = leads.filter(lead => getEffectiveStatus(lead) === selectedStatus.value)
   }
   
   return leads

@@ -120,6 +120,14 @@ export const useUserProfileStore = defineStore("userProfile", {
       );
     },
 
+    // Matches all_leads_edit_access() RLS function — dept 1 (CEO) or dept 20 (Sales Head)
+    canEditAllLeads: (state): boolean => {
+      const editDepartments = new Set([1, 20]);
+      return state.managedDepartments.some((dept) =>
+        editDepartments.has(dept.id),
+      );
+    },
+
     // User initials for avatar
     userInitials: (state): string => {
       const name = state.profile?.full_name || state.profile?.email || "";
