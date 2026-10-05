@@ -10,6 +10,7 @@ interface DepartmentCacheEntry {
   parent_id: number | null;
 }
 
+
 export interface LeadState {
   leads: SpancoLead[];
   stageHistory: Record<number, SpancoStageHistory[]>;
@@ -25,12 +26,12 @@ export interface LeadState {
   };
   selectedLeadId: number | null;
   dateFilter:
-    | "all"
-    | "overdue"
-    | "thisweek"
-    | "nextweek"
-    | "thismonth"
-    | "later";
+  | "all"
+  | "overdue"
+  | "thisweek"
+  | "nextweek"
+  | "thismonth"
+  | "later";
   // ✅ Server-side summary counts (always accurate, independent of pagination)
   serverSummary: ServerSummary;
   isLoadingSummary: boolean;
@@ -528,84 +529,19 @@ export const useLeadStore = defineStore("lead", {
       await Promise.all([this.fetchLeads(), this.fetchSummaryCounts()]);
     },
 
-    // ✅ Fetch salespeople scoped to current user's department + downline only
+    // ✅ Fetch salespeople from allowed LMS departments only
     async fetchSalespeople() {
       const supabase = useSupabaseClient();
-      const userProfileStore = useUserProfileStore();
       this.isLoadingSalespeople = true;
 
+      // Only show employees from these exact departments
+      const ALLOWED_LMS_DEPT_IDS = [1, 20, 2011, 2012, 2013, 2014];
+
       try {
-        // Step 1: Determine the starting department(s) for this user
-        // The user can only see profiles in their managed department and its children
-        const userManagedDeptIds = userProfileStore.managedDepartmentIds;
-        if (userManagedDeptIds.length === 0) {
-          this.salespeople = [];
-          return;
-        }
-
-        // Step 2: Fetch all active departments as a plain array
-        const { data: allDepts, error: deptError } = await supabase
-          .from("departments")
-          .select("id, name, manager_id, parent_id")
-          .eq("is_active", true);
-
-        if (deptError) throw deptError;
-        const departments = (allDepts || []) as DepartmentCacheEntry[];
-        if (departments.length === 0) {
-          this.salespeople = [];
-          return;
-        }
-
-        // Step 3: Determine root departments for the BFS
-        // - If user manages dept 1 (CEO), start from dept 20 (sales root)
-        // - Otherwise, use only the user's managed depts that fall within the sales tree
-        const SALES_ROOT_DEPT_ID = 20;
-
-        // Build full sales subtree IDs for intersection check
-        const allSalesIds = new Set<number>([SALES_ROOT_DEPT_ID]);
-        let parents = [SALES_ROOT_DEPT_ID];
-        while (parents.length > 0) {
-          const kids = departments.filter(
-            (d) => d.parent_id !== null && parents.includes(d.parent_id),
-          );
-          const kidIds = kids.map((d) => d.id);
-          kidIds.forEach((id) => allSalesIds.add(id));
-          parents = kidIds;
-        }
-
-        let rootDeptIds: number[];
-
-        if (userManagedDeptIds.includes(1)) {
-          // CEO — show entire sales tree
-          rootDeptIds = [SALES_ROOT_DEPT_ID];
-        } else {
-          // Intersect user's managed depts with the sales tree
-          rootDeptIds = userManagedDeptIds.filter((id) => allSalesIds.has(id));
-        }
-
-        if (rootDeptIds.length === 0) {
-          this.salespeople = [];
-          return;
-        }
-
-        // Step 4: BFS from user's root dept(s) to collect downline department IDs
-        const scopedDeptIds: number[] = [...rootDeptIds];
-        let currentParentIds = [...rootDeptIds];
-        while (currentParentIds.length > 0) {
-          const children = departments.filter(
-            (d) =>
-              d.parent_id !== null && currentParentIds.includes(d.parent_id),
-          );
-          const childIds = children.map((d) => d.id);
-          scopedDeptIds.push(...childIds);
-          currentParentIds = childIds;
-        }
-
-        // Step 5: Fetch profiles ONLY from the scoped departments
         const { data: profiles, error: profileError } = await supabase
           .from("profiles")
           .select("id, full_name, employee_code, avatar_url")
-          .in("department", scopedDeptIds)
+          .in("department", ALLOWED_LMS_DEPT_IDS)
           .eq("is_active", true)
           .order("full_name");
 

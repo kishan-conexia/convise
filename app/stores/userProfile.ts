@@ -14,6 +14,7 @@ export interface UserProfile {
   is_active: boolean;
   app_access: boolean | null;
   geofencing: boolean | null;
+  face_recognition?: boolean | null;
   date_of_joining: string | null;
   created_at: string;
   updated_at: string;
@@ -30,6 +31,7 @@ export interface UserProfileState {
   profile: UserProfile | null;
   managedDepartments: ManagedDepartment[];
   isManager: boolean;
+  canAccessAdminPanel: boolean | null;
   isLoading: boolean;
   error: string | null;
   initialized: boolean;
@@ -40,6 +42,7 @@ export const useUserProfileStore = defineStore("userProfile", {
     profile: null,
     managedDepartments: [],
     isManager: false,
+    canAccessAdminPanel: null,
     isLoading: false,
     error: null,
     initialized: false,
@@ -85,7 +88,7 @@ export const useUserProfileStore = defineStore("userProfile", {
     },
 
     canAccessMonthlyAttendance: (state): boolean => {
-      const allowedDepartments = new Set([1, 30, 301, 302, 303]);
+      const allowedDepartments = new Set([1, 20, 30, 301, 302, 303]);
       return state.managedDepartments.some((dept) =>
         allowedDepartments.has(dept.id),
       );
@@ -128,6 +131,18 @@ export const useUserProfileStore = defineStore("userProfile", {
       );
     },
 
+    // Admin portal access (verified via access_admin_panel RPC: Dept 303, 105, 1)
+    isAdmin: (state): boolean => {
+      if (typeof state.canAccessAdminPanel === "boolean") {
+        return state.canAccessAdminPanel;
+      }
+      // Fallback matching public.access_admin_panel() (departments 303, 105, 1)
+      const adminDepartments = new Set([303, 105, 1]);
+      return state.managedDepartments.some((dept) =>
+        adminDepartments.has(dept.id),
+      );
+    },
+
     // User initials for avatar
     userInitials: (state): string => {
       const name = state.profile?.full_name || state.profile?.email || "";
@@ -136,23 +151,46 @@ export const useUserProfileStore = defineStore("userProfile", {
   },
 
   actions: {
-    async fetchUserProfile(userId?: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async fetchUserProfile(userId?: string, supabaseClient?: any) {
       if (this.isLoading) return;
 
-      const supabase = useSupabaseClient();
-      const user = useSupabaseUser();
+      let supabase = supabaseClient;
+      if (!supabase) {
+        try {
+          supabase = useSupabaseClient();
+        } catch {
+          // Fallback if called outside Nuxt setup context
+        }
+      }
 
-      if (!user.value && !userId) {
+      let user = null;
+      try {
+        const authUser = useSupabaseUser();
+        user = authUser.value;
+      } catch {
+        // Fallback if called outside Nuxt setup context
+      }
+
+      if (!user && !userId) {
         this.error = "No user found";
         return;
       }
 
-      const targetUserId = userId || user.value!.id;
+      const targetUserId = userId || user?.id;
+      if (!targetUserId) {
+        this.error = "No user ID found";
+        return;
+      }
 
       this.isLoading = true;
       this.error = null;
 
       try {
+        if (!supabase) {
+          throw new Error("Supabase client is not available.");
+        }
+
         // Fetch user profile
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
@@ -182,6 +220,9 @@ export const useUserProfileStore = defineStore("userProfile", {
         this.managedDepartments = managedDepts || [];
         this.isManager = this.managedDepartments.length > 0;
         this.initialized = true;
+
+        // Check admin panel access via access_admin_panel() RPC reusing supabase instance
+        await this.checkAdminAccess(supabase, false);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
@@ -220,10 +261,19 @@ export const useUserProfileStore = defineStore("userProfile", {
       }
     },
 
-    async refreshManagedDepartments() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async refreshManagedDepartments(supabaseClient?: any) {
       if (!this.profile) return;
 
-      const supabase = useSupabaseClient();
+      let supabase = supabaseClient;
+      if (!supabase) {
+        try {
+          supabase = useSupabaseClient();
+        } catch {
+          // Fallback if called outside Nuxt setup context
+        }
+      }
+      if (!supabase) return;
 
       try {
         const { data: managedDepts, error } = await supabase
@@ -237,6 +287,7 @@ export const useUserProfileStore = defineStore("userProfile", {
 
         this.managedDepartments = managedDepts || [];
         this.isManager = this.managedDepartments.length > 0;
+        await this.checkAdminAccess(supabase, true);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         console.error("Error refreshing managed departments:", error);
@@ -244,10 +295,48 @@ export const useUserProfileStore = defineStore("userProfile", {
       }
     },
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async checkAdminAccess(supabaseClient?: any, forceRefresh = false): Promise<boolean> {
+      if (!forceRefresh && typeof this.canAccessAdminPanel === "boolean") {
+        return this.canAccessAdminPanel;
+      }
+
+      let supabase = supabaseClient;
+      if (!supabase) {
+        try {
+          supabase = useSupabaseClient();
+        } catch (err) {
+          console.warn("Could not get supabase client for checkAdminAccess:", err);
+        }
+      }
+
+      if (supabase) {
+        try {
+          const { data, error } = await (supabase as any).rpc("access_admin_panel");
+          if (!error && typeof data === "boolean") {
+            this.canAccessAdminPanel = data;
+            return data;
+          }
+          if (error) {
+            console.warn("access_admin_panel RPC warning:", error.message || error);
+          }
+        } catch (err) {
+          console.warn("access_admin_panel RPC exception:", err);
+        }
+      }
+
+      // Fallback matching public.access_admin_panel(): Dept 303, 105, 1
+      const allowedDepts = new Set([303, 105, 1]);
+      const fallbackAccess = this.managedDepartments.some((d) => allowedDepts.has(d.id));
+      this.canAccessAdminPanel = fallbackAccess;
+      return fallbackAccess;
+    },
+
     clearProfile() {
       this.profile = null;
       this.managedDepartments = [];
       this.isManager = false;
+      this.canAccessAdminPanel = null;
       this.error = null;
       this.initialized = false;
     },

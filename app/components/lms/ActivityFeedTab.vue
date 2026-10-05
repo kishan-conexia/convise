@@ -846,7 +846,7 @@ function getStageColorSemantic(
     green: "success",
     red: "error",
   };
-  return colorMap[STAGE_COLORS[stage]] || "neutral";
+  return colorMap[STAGE_COLORS[stage] ?? ""] || "neutral";
 }
 
 function getStatusColorSemantic(

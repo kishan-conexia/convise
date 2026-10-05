@@ -721,8 +721,18 @@ const fetchMonthlyAttendance = async () => {
       employeeCache.value.set(emp.id, emp);
     });
 
-    // Filter active employees
-    const activeEmployees = allEmployees?.filter((emp) => emp.is_active) || [];
+    // Filter active employees //comment out because of Poem Techno Pvt Ltd
+    // const activeEmployees = allEmployees?.filter((emp) => emp.is_active) || [];
+
+    // Department IDs to exclude (40 = Poem Techno Pvt Ltd)
+    const EXCLUDED_DEPARTMENT_IDS = [40];
+
+    // Filter active employees (excluding Poem Techno)
+    const activeEmployees =
+      allEmployees?.filter(
+        (emp) =>
+          emp.is_active && !EXCLUDED_DEPARTMENT_IDS.includes(emp.department)
+      ) || [];
 
     // Extract unique department IDs
     const departmentIds = [
@@ -1070,12 +1080,7 @@ onMounted(async () => {
   }
 
   // Check manager access permissions
-  const allowedDepartments = [1, 30, 301, 302, 303];
-  const canAccess = userProfileStore.managedDepartmentIds?.some((id) =>
-    allowedDepartments.includes(id)
-  );
-
-  if (!canAccess) {
+  if (!userProfileStore.canAccessMonthlyAttendance) {
     toast.add({
       title: "Access denied",
       description: "You do not have permission to view monthly attendance",

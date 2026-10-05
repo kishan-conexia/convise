@@ -745,7 +745,7 @@
             </div>
 
             <!-- ✅ Feasibility Requests Section -->
-            <div>
+            <div v-if="systemConfigStore.isFeasibilityEnabled">
               <h4
                 class="text-sm font-semibold text-gray-900 mb-3 flex items-center"
               >
@@ -1277,6 +1277,7 @@
 const leadStore = useLeadStore();
 const feasibilityStore = useFeasibilityStore();
 const userProfileStore = useUserProfileStore();
+const systemConfigStore = useSystemConfigStore();
 const supabaseUser = useSupabaseUser();
 
 const isOpen = computed(() => leadStore.selectedLeadId !== null);
@@ -1579,7 +1580,8 @@ function getStageColorSemantic(
     orange: "warning",
     green: "success",
   };
-  return colorMap[STAGE_COLORS[stage]] || "neutral";
+  const color = STAGE_COLORS[stage];
+  return (color && colorMap[color]) || "neutral";
 }
 
 function getStatusColorSemantic(
@@ -1608,7 +1610,8 @@ function getStatusColorSemantic(
     red: "error",
     gray: "neutral",
   };
-  return colorMap[STATUS_COLORS[status]] || "neutral";
+  const color = STATUS_COLORS[status];
+  return (color && colorMap[color]) || "neutral";
 }
 
 function getPriorityColorSemantic(
@@ -1637,7 +1640,8 @@ function getPriorityColorSemantic(
     red: "error",
     rose: "error",
   };
-  return colorMap[PRIORITY_COLORS[priority]] || "neutral";
+  const color = PRIORITY_COLORS[priority];
+  return (color && colorMap[color]) || "neutral";
 }
 // Helper to get user initials
 function getInitials(name: string | null | undefined): string {

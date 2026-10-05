@@ -667,7 +667,8 @@ function getStageColorSemantic(stage: SpancoStage): 'primary' | 'secondary' | 's
     green: 'success',
     red: 'error',
   }
-  return colorMap[STAGE_COLORS[stage]] || 'neutral'
+  const color = STAGE_COLORS[stage];
+  return (color && colorMap[color]) || 'neutral'
 }
 
 function getStatusColorSemantic(status: LeadStatus): 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'neutral' {
@@ -678,7 +679,8 @@ function getStatusColorSemantic(status: LeadStatus): 'primary' | 'secondary' | '
     red: 'error',
     gray: 'neutral',
   }
-  return colorMap[STATUS_COLORS[status]] || 'neutral'
+  const color = STATUS_COLORS[status];
+  return (color && colorMap[color]) || 'neutral'
 }
 
 function getPriorityColorSemantic(priority: Priority): 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'neutral' {
@@ -689,7 +691,8 @@ function getPriorityColorSemantic(priority: Priority): 'primary' | 'secondary' |
     red: 'error',
     rose: 'error',
   }
-  return colorMap[PRIORITY_COLORS[priority]] || 'neutral'
+  const color = PRIORITY_COLORS[priority];
+  return (color && colorMap[color]) || 'neutral'
 }
 </script>
 

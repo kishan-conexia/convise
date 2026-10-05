@@ -258,7 +258,7 @@
                 </div>
 
                 <!-- LMS (Lead Management) - Conditional -->
-                <div v-if="userProfileStore.canAccessLMS" class="group">
+                <div v-if="userProfileStore.canAccessLMS && systemConfigStore.isSpancoEnabled" class="group">
                   <div class="relative">
                     <div
                       class="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-yellow-600 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"
@@ -274,6 +274,25 @@
                       <span class="font-medium text-gray-900"
                         >Lead Management</span
                       >
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Admin Control Center - Conditional -->
+                <div v-if="userProfileStore.isAdmin" class="group">
+                  <div class="relative">
+                    <div
+                      class="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl blur opacity-75"
+                    />
+                    <button
+                      class="relative w-full flex items-center space-x-3 px-4 py-3 bg-slate-900 text-white rounded-xl transition-all duration-200 border border-emerald-500/30"
+                      @click="handleDrawerNavigation('/admin')"
+                    >
+                      <UIcon
+                        name="i-heroicons-shield-check"
+                        class="h-5 w-5 text-emerald-400"
+                      />
+                      <span class="font-bold text-white">Admin Control Center</span>
                     </button>
                   </div>
                 </div>
@@ -349,7 +368,17 @@
             </div>
 
             <!-- Desktop User Profile Section - Redesigned -->
-            <div class="hidden lg:flex items-center space-x-6">
+            <div class="hidden lg:flex items-center space-x-4">
+              <!-- Admin Control Center Button -->
+              <NuxtLink
+                v-if="userProfileStore.isAdmin"
+                to="/admin"
+                class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all active:scale-95"
+              >
+                <UIcon name="i-heroicons-shield-check" class="w-4 h-4 text-emerald-200" />
+                <span>Admin Portal</span>
+              </NuxtLink>
+
               <!-- User Info -->
               <div class="text-right">
                 <p class="text-sm font-semibold text-gray-800">
@@ -515,6 +544,44 @@
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Admin Control Center Card (Conditional) -->
+            <div
+              v-if="userProfileStore.isAdmin"
+              class="group cursor-pointer"
+              @click="navigateTo('/admin')"
+            >
+              <div class="relative">
+                <div
+                  class="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"
+                />
+                <UCard
+                  class="relative bg-white/80 backdrop-blur-lg border-0 shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:scale-105 p-6"
+                >
+                  <div class="text-center">
+                    <div
+                      class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl mb-6 shadow-lg shadow-emerald-500/25"
+                    >
+                      <UIcon
+                        name="i-heroicons-shield-check"
+                        class="h-8 w-8 text-white"
+                      />
+                    </div>
+                    <div class="flex items-center justify-center gap-2 mb-2">
+                      <h4 class="text-xl font-bold text-gray-900">
+                        Admin Portal
+                      </h4>
+                      <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700 border border-emerald-200">
+                        Control
+                      </span>
+                    </div>
+                    <p class="text-gray-600">
+                      Manage staff, attendance, GPS geofencing & policies
+                    </p>
+                  </div>
+                </UCard>
+              </div>
+            </div>
+
             <!-- Profile Card -->
             <div class="group cursor-pointer" @click="navigateTo('/profile')">
               <div class="relative">
@@ -686,7 +753,7 @@
 
             <!-- LMS (Lead Management) - Conditional -->
             <div
-              v-if="userProfileStore.canAccessLMS"
+              v-if="userProfileStore.canAccessLMS && systemConfigStore.isSpancoEnabled"
               class="group cursor-pointer"
               @click="navigateTo('/lms')"
             >
@@ -789,6 +856,7 @@ const toast = useToast();
 
 // Use the user profile store
 const userProfileStore = useUserProfileStore();
+const systemConfigStore = useSystemConfigStore();
 
 // Reactive state - simplified since most data is now in the store
 const isLoading = ref(true);
@@ -828,6 +896,7 @@ const initializeAppState = async () => {
 
     // Use the store to fetch user profile
     await userProfileStore.fetchUserProfile(user.value.id);
+    await systemConfigStore.fetchConfig(supabase);
 
     if (userProfileStore.error) {
       throw new Error(userProfileStore.error);

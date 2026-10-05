@@ -2172,6 +2172,14 @@ const loadRegularizationRequests = async () => {
     .order("created_at", { ascending: false });
 
   regularizationRequests.value = response || [];
+
+    // this line of code only shows the requests related to the approver and will not show more in the hierarchy
+  regularizationRequests.value = (response || []).filter((req) => {
+    const employeeId = req.employee_id;
+    const approvalLevels = req.approval_levels || 0;
+    const myLevel = calculateApprovalLevel(employeeId);
+    return myLevel <= approvalLevels;
+  });
 };
 
 const loadLeaveRequests = async () => {
@@ -2200,6 +2208,14 @@ const loadLeaveRequests = async () => {
     .order("created_at", { ascending: false });
 
   leaveRequests.value = response || [];
+
+    // this line of code only shows the requests related to the approver and will not show more in the hierarchy
+  leaveRequests.value = (response || []).filter((req) => {
+    const employeeId = req.employee_id;
+    const approvalLevels = req.approval_levels || 0;
+    const myLevel = calculateApprovalLevel(employeeId);
+    return myLevel <= approvalLevels;
+  });
 };
 
 // Helper functions from Flutter
@@ -2782,6 +2798,7 @@ useHead({
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

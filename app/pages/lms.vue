@@ -347,13 +347,27 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from "vue";
+import { useSystemConfigStore } from "~/stores/systemConfig";
+
 definePageMeta({
-  middleware: "auth",
+  middleware: ["auth", "spanco"],
 });
 
 const leadStore = useLeadStore();
+const systemConfigStore = useSystemConfigStore();
 const toast = useToast();
 const exportLeads = useExportLeads();
+
+// In-page guard in case Spanco is disabled via realtime
+watch(
+  () => systemConfigStore.isSpancoEnabled,
+  (enabled) => {
+    if (!enabled) {
+      navigateTo("/dashboard");
+    }
+  }
+);
 
 // State - Use string value matching official docs
 const selectedTab = ref("activity");

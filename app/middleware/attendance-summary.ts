@@ -16,8 +16,8 @@ export default defineNuxtRouteMiddleware(() => {
       toast.add({
         title: 'Redirecting',
         description: 'Please select an employee from the department page to view attendance.',
-        color: 'blue',
-        timeout: 2000
+        color: 'info',
+        duration: 2000
       })
       
       // Redirect to department page
