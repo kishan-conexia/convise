@@ -406,12 +406,26 @@
 
             <!-- Employee Code -->
             <div class="space-y-1">
-              <label class="text-xs font-semibold text-gray-700">Employee Code</label>
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-gray-700">Employee Code *</label>
+                <span class="text-[10px] text-gray-400 font-mono">Min. 3 characters</span>
+              </div>
               <input
                 v-model="editForm.employee_code"
                 type="text"
-                class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:border-emerald-500 focus:outline-none font-mono"
+                required
+                minlength="3"
+                maxlength="20"
+                placeholder="e.g. ABB001"
+                class="w-full px-3 py-2 rounded-xl bg-gray-50 border text-gray-900 text-xs focus:bg-white focus:outline-none font-mono uppercase transition-colors"
+                :class="editCodeError ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500'"
+                @input="validateEditCode"
+                @blur="validateEditCode"
               />
+              <p v-if="editCodeError" class="text-[11px] text-red-500 font-medium flex items-center gap-1">
+                <UIcon name="i-heroicons-exclamation-circle" class="w-3.5 h-3.5 shrink-0" />
+                <span>{{ editCodeError }}</span>
+              </p>
             </div>
 
             <!-- Phone -->
@@ -1124,6 +1138,29 @@ const editForm = ref({
   face_match_threshold: 0.75,
 });
 
+const editCodeError = ref("");
+
+function validateEditCode(): boolean {
+  const val = (editForm.value.employee_code || "").trim().toUpperCase();
+  editForm.value.employee_code = val;
+  if (!val) {
+    editCodeError.value = "Employee code is required.";
+  } else if (val.length < 3 || val.length > 20) {
+    editCodeError.value = "Employee code must be between 3 and 20 characters.";
+  } else if (!/^[A-Z0-9_-]+$/.test(val)) {
+    editCodeError.value = "Only uppercase letters, numbers, hyphens, and underscores allowed.";
+  } else if (
+    adminStore.employees.some(
+      (e) => e.id !== activeEmp.value?.id && e.employee_code?.toUpperCase() === val
+    )
+  ) {
+    editCodeError.value = "This employee code is already assigned to another employee.";
+  } else {
+    editCodeError.value = "";
+  }
+  return !editCodeError.value;
+}
+
 const enrolledPhotoUrl = ref<string | null>(null);
 const isResettingFace = ref(false);
 
@@ -1334,6 +1371,7 @@ async function refreshData() {
 
 function openEditModal(emp: AdminEmployee) {
   activeEmp.value = emp;
+  editCodeError.value = "";
   editForm.value = {
     full_name: emp.full_name || "",
     employee_code: emp.employee_code || "",
@@ -1355,6 +1393,7 @@ function openEditModal(emp: AdminEmployee) {
 
 async function saveProfileEdit() {
   if (!activeEmp.value) return;
+  if (!validateEditCode()) return;
   isSaving.value = true;
   try {
     const { error } = await (supabase as any)
@@ -1409,14 +1448,21 @@ async function savePasswordReset() {
 
   isSavingPassword.value = true;
   try {
-    const { data, error } = await supabase.functions.invoke("Password-Change", {
+    const { data, error } = await supabase.functions.invoke("password-change", {
       body: {
         uid: activeEmp.value.id,
         newPassword: newPassword.value,
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      let errMsg = error.message;
+      try {
+        const errJson = await (error as any).context?.json();
+        if (errJson?.message) errMsg = errJson.message;
+      } catch (_) {}
+      throw new Error(errMsg || "Failed to update password");
+    }
     if (data && !data.success) {
       throw new Error(data.message || "Failed to update password");
     }
@@ -1451,7 +1497,7 @@ function openScheduleModal(emp: AdminEmployee) {
 }
 
 async function saveSchedule() {
-  if (!activeEmp.value) return;
+  if (!activeEmp.value || isSavingSchedule.value) return;
   isSavingSchedule.value = true;
 
   try {
@@ -1473,15 +1519,42 @@ async function saveSchedule() {
       updated_at: new Date().toISOString(),
     };
 
-    if (activeEmp.value.work_schedule?.id) {
-      const { error } = await (supabase as any)
+    let targetScheduleId = activeEmp.value.work_schedule?.id;
+
+    if (!targetScheduleId) {
+      const { data: existingRecords } = await (supabase as any)
+        .from("work_schedules")
+        .select("id")
+        .eq("employee_id", activeEmp.value.id)
+        .order("id", { ascending: false });
+
+      if (existingRecords && existingRecords.length > 0) {
+        targetScheduleId = existingRecords[0].id;
+      }
+    }
+
+    if (targetScheduleId) {
+      const { data: updated, error } = await (supabase as any)
         .from("work_schedules")
         .update(scheduleData)
-        .eq("id", activeEmp.value.work_schedule.id);
+        .eq("employee_id", activeEmp.value.id)
+        .select();
+
       if (error) throw error;
+      if (updated && updated.length > 0 && activeEmp.value) {
+        activeEmp.value.work_schedule = updated[0];
+      }
     } else {
-      const { error } = await (supabase as any).from("work_schedules").insert(scheduleData);
+      const { data: inserted, error } = await (supabase as any)
+        .from("work_schedules")
+        .insert(scheduleData)
+        .select()
+        .single();
+
       if (error) throw error;
+      if (inserted && activeEmp.value) {
+        activeEmp.value.work_schedule = inserted;
+      }
     }
 
     await adminStore.fetchEmployees(true);

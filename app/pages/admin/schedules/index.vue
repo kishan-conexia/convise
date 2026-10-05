@@ -650,7 +650,7 @@ function openScheduleModal(emp: AdminEmployee) {
 }
 
 async function saveSchedule() {
-  if (!activeEmp.value) return;
+  if (!activeEmp.value || isSaving.value) return;
   isSaving.value = true;
 
   try {
@@ -672,15 +672,45 @@ async function saveSchedule() {
       updated_at: new Date().toISOString(),
     };
 
-    if (activeEmp.value.work_schedule?.id) {
-      const { error } = await (supabase as any)
+    // 1. Resolve existing schedule ID from activeEmp or directly from the DB
+    let targetScheduleId = activeEmp.value.work_schedule?.id;
+
+    if (!targetScheduleId) {
+      const { data: existingRecords } = await (supabase as any)
+        .from("work_schedules")
+        .select("id")
+        .eq("employee_id", activeEmp.value.id)
+        .order("id", { ascending: false });
+
+      if (existingRecords && existingRecords.length > 0) {
+        targetScheduleId = existingRecords[0].id;
+      }
+    }
+
+    if (targetScheduleId) {
+      // Update by employee_id to keep all existing rows for this employee synchronized
+      const { data: updated, error } = await (supabase as any)
         .from("work_schedules")
         .update(payload)
-        .eq("id", activeEmp.value.work_schedule.id);
+        .eq("employee_id", activeEmp.value.id)
+        .select();
+
       if (error) throw error;
+      if (updated && updated.length > 0 && activeEmp.value) {
+        activeEmp.value.work_schedule = updated[0];
+      }
     } else {
-      const { error } = await (supabase as any).from("work_schedules").insert(payload);
+      // Only insert when no schedule exists for this employee
+      const { data: inserted, error } = await (supabase as any)
+        .from("work_schedules")
+        .insert(payload)
+        .select()
+        .single();
+
       if (error) throw error;
+      if (inserted && activeEmp.value) {
+        activeEmp.value.work_schedule = inserted;
+      }
     }
 
     await adminStore.fetchEmployees(true);

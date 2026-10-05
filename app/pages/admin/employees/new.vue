@@ -156,11 +156,16 @@
 
             <!-- Employee Code -->
             <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-gray-700">Employee Code (Login ID) *</label>
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-gray-700">Employee Code (Login ID) *</label>
+                <span class="text-[10px] text-gray-400 font-mono">Min. 3 characters</span>
+              </div>
               <input
                 v-model="form.employeeCode"
                 type="text"
                 required
+                minlength="3"
+                maxlength="20"
                 placeholder="e.g. EMP202401"
                 :class="[
                   'w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border text-gray-900 placeholder-gray-400 text-xs focus:bg-white focus:outline-none font-mono uppercase transition-colors',
@@ -900,8 +905,8 @@ function validateField(field: keyof typeof errors) {
       form.employeeCode = val;
       if (!val) {
         errors.employeeCode = "Employee code is required.";
-      } else if (val.length < 2 || val.length > 20) {
-        errors.employeeCode = "Employee code must be 2 to 20 characters.";
+      } else if (val.length < 3 || val.length > 20) {
+        errors.employeeCode = "Employee code must be between 3 and 20 characters.";
       } else if (!/^[A-Z0-9_-]+$/.test(val)) {
         errors.employeeCode = "Only uppercase letters, numbers, hyphens, and underscores allowed.";
       } else if (adminStore.employees.some((e) => e.employee_code?.toUpperCase() === val)) {
