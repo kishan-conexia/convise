@@ -210,6 +210,16 @@ const modules = computed(() => {
       glow: "bg-gradient-to-r from-emerald-500 to-teal-500",
     },
     {
+      title: "Request & Approval History",
+      desc: "Audit employee attendance regularizations and leave applications, review multi-level manager approvals, and export CSV reports.",
+      icon: "i-heroicons-clipboard-document-list",
+      path: "/admin/requests",
+      stat: "Approval Audit",
+      action: "Audit",
+      iconBg: "bg-cyan-500 text-white shadow-cyan-500/25",
+      glow: "bg-gradient-to-r from-cyan-500 to-blue-500",
+    },
+    {
       title: "Schedules & Geofencing",
       desc: "Configure shift hours, punch grace periods, office/home GPS coordinates, radius, and WFM permissions.",
       icon: "i-heroicons-map-pin",

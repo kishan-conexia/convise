@@ -34,7 +34,7 @@
       <div class="p-4 rounded-2xl bg-white/80 backdrop-blur-lg border border-gray-200/70 shadow-lg">
         <div class="text-[11px] font-bold uppercase tracking-wider text-gray-500">Staff Configured</div>
         <div class="text-2xl font-black text-gray-900 mt-1 font-mono">{{ totalWithSchedule }}</div>
-        <div class="text-[10px] text-gray-500 mt-0.5">Assigned work shifts</div>
+        <div class="text-[10px] text-gray-500 mt-0.5">{{ fixedCount }} fixed • {{ flexibleCount }} flexible</div>
       </div>
       <div class="p-4 rounded-2xl bg-white/80 backdrop-blur-lg border border-gray-200/70 shadow-lg">
         <div class="text-[11px] font-bold uppercase tracking-wider text-teal-700">WFM Authorized</div>
@@ -77,6 +77,16 @@
           </option>
         </select>
 
+        <!-- Schedule Type Filter -->
+        <select
+          v-model="selectedScheduleType"
+          class="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs text-gray-700 focus:bg-white focus:outline-none focus:border-teal-500"
+        >
+          <option value="ALL">All Schedule Types</option>
+          <option value="fixed">Fixed Timings</option>
+          <option value="flexible">Flexible Timings</option>
+        </select>
+
         <!-- WFM Mode Filter -->
         <select
           v-model="selectedMode"
@@ -108,7 +118,7 @@
           <thead>
             <tr class="border-b border-gray-200 bg-gray-50/80 text-gray-500 uppercase tracking-wider text-[10px] font-bold">
               <th class="py-3.5 px-4">Employee</th>
-              <th class="py-3.5 px-4">Shift Timings</th>
+              <th class="py-3.5 px-4">Shift Timings & Type</th>
               <th class="py-3.5 px-4">WFM Status</th>
               <th class="py-3.5 px-4">Office Geofence</th>
               <th class="py-3.5 px-4">Home & Field Areas</th>
@@ -139,15 +149,26 @@
                 </div>
               </td>
 
-              <!-- Shift Timings -->
+              <!-- Shift Timings & Type -->
               <td class="py-3.5 px-4">
-                <div v-if="emp.work_schedule" class="space-y-0.5">
+                <div v-if="emp.work_schedule?.schedule_type === 'flexible'" class="space-y-0.5">
+                  <div class="flex items-center gap-1.5 font-bold text-purple-700 text-xs">
+                    <UIcon name="i-heroicons-arrow-path-rounded-square" class="w-3.5 h-3.5 text-purple-600" />
+                    <span>Flexible Schedule</span>
+                  </div>
+                  <div class="text-[10px] text-gray-500 flex items-center gap-1 font-mono">
+                    <span class="text-purple-700 font-bold font-sans">Min:</span>
+                    <span>{{ emp.work_schedule.min_work_hours ?? 8 }} hrs/day</span>
+                  </div>
+                </div>
+                <div v-else-if="emp.work_schedule" class="space-y-0.5">
                   <div class="font-mono text-gray-900 font-bold flex items-center gap-1.5">
                     <UIcon name="i-heroicons-clock" class="w-3.5 h-3.5 text-teal-600" />
                     <span>{{ formatTime(emp.work_schedule.start_time) }} - {{ formatTime(emp.work_schedule.end_time) }}</span>
                   </div>
-                  <div class="text-[10px] text-gray-500 capitalize">
-                    Pattern: {{ emp.work_schedule.shift_pattern || 'Day Shift' }}
+                  <div class="text-[10px] text-gray-500 capitalize flex items-center gap-1.5">
+                    <span>{{ emp.work_schedule.shift_pattern || 'Day Shift' }}</span>
+                    <span v-if="emp.work_schedule.min_work_hours" class="text-gray-400 font-mono">• {{ emp.work_schedule.min_work_hours }}h min</span>
                   </div>
                 </div>
                 <span v-else class="text-amber-600 italic text-[11px] font-semibold">Unassigned</span>
@@ -257,39 +278,216 @@
         </div>
 
         <form @submit.prevent="saveSchedule" class="space-y-4">
-          <!-- Timings & Grace -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="space-y-1">
-              <label class="text-xs font-semibold text-gray-700">Shift Start Time *</label>
-              <input
-                v-model="form.start_time"
-                type="time"
-                required
-                class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:border-teal-500 focus:outline-none cursor-pointer [color-scheme:light]"
-                @click="(e) => (e.target as HTMLInputElement).showPicker?.()"
-              />
+          <!-- Schedule Type & Working Hours Configuration Card -->
+          <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200 space-y-4">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                <UIcon name="i-heroicons-calendar-days" class="w-4 h-4 text-teal-600" />
+                <span>Schedule Type & Working Hours</span>
+              </label>
+              <span
+                class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
+                :class="form.schedule_type === 'fixed' ? 'bg-teal-100 text-teal-800 border border-teal-200' : 'bg-purple-100 text-purple-800 border border-purple-200'"
+              >
+                {{ form.schedule_type === 'fixed' ? 'Fixed Timings' : 'Flexible Timings' }}
+              </span>
             </div>
 
-            <div class="space-y-1">
-              <label class="text-xs font-semibold text-gray-700">Shift End Time *</label>
-              <input
-                v-model="form.end_time"
-                type="time"
-                required
-                class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:border-teal-500 focus:outline-none cursor-pointer [color-scheme:light]"
-                @click="(e) => (e.target as HTMLInputElement).showPicker?.()"
-              />
+            <!-- Segmented Selector: Fixed vs Flexible -->
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                class="p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 cursor-pointer"
+                :class="form.schedule_type === 'fixed' ? 'bg-white border-teal-500 shadow-sm ring-1 ring-teal-500' : 'bg-white/60 border-gray-200 hover:bg-white text-gray-600'"
+                @click="setScheduleType('fixed')"
+              >
+                <div class="p-1.5 rounded-lg shrink-0" :class="form.schedule_type === 'fixed' ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-400'">
+                  <UIcon name="i-heroicons-clock" class="w-4 h-4" />
+                </div>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold" :class="form.schedule_type === 'fixed' ? 'text-teal-900' : 'text-gray-800'">
+                    Fixed Schedule
+                  </div>
+                  <div class="text-[10px] text-gray-500 line-clamp-1">
+                    Start & end shift timings enforced
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 cursor-pointer"
+                :class="form.schedule_type === 'flexible' ? 'bg-white border-purple-500 shadow-sm ring-1 ring-purple-500' : 'bg-white/60 border-gray-200 hover:bg-white text-gray-600'"
+                @click="setScheduleType('flexible')"
+              >
+                <div class="p-1.5 rounded-lg shrink-0" :class="form.schedule_type === 'flexible' ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-400'">
+                  <UIcon name="i-heroicons-arrow-path-rounded-square" class="w-4 h-4" />
+                </div>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold" :class="form.schedule_type === 'flexible' ? 'text-purple-900' : 'text-gray-800'">
+                    Flexible Schedule
+                  </div>
+                  <div class="text-[10px] text-gray-500 line-clamp-1">
+                    Timings ignored, direct min hours
+                  </div>
+                </div>
+              </button>
             </div>
 
-            <div class="space-y-1">
-              <label class="text-xs font-semibold text-gray-700">Punch-in Grace (Minutes)</label>
-              <input
-                v-model.number="form.punch_in_grace"
-                type="number"
-                min="0"
-                max="60"
-                class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:border-teal-500 focus:outline-none"
-              />
+            <!-- Timings & Hours Row -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1 items-start">
+              <!-- Shift Start Time -->
+              <div class="space-y-1.5 flex flex-col">
+                <div class="flex items-center justify-between min-h-[22px] gap-1">
+                  <label class="text-xs font-semibold truncate" :class="form.schedule_type === 'fixed' ? 'text-gray-700' : 'text-gray-400'">
+                    Shift Start Time {{ form.schedule_type === 'fixed' ? '*' : '' }}
+                  </label>
+                  <span
+                    v-if="form.schedule_type === 'fixed'"
+                    class="text-[9px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 whitespace-nowrap"
+                  >
+                    Required
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap"
+                  >
+                    Ignored
+                  </span>
+                </div>
+                <input
+                  v-model="form.start_time"
+                  type="time"
+                  :disabled="form.schedule_type === 'flexible'"
+                  :required="form.schedule_type === 'fixed'"
+                  class="w-full h-[38px] px-3 rounded-xl border text-xs focus:outline-none transition-all font-mono [color-scheme:light]"
+                  :class="[
+                    form.schedule_type === 'fixed'
+                      ? 'bg-white border-gray-200 text-gray-900 focus:border-teal-500 cursor-pointer shadow-sm'
+                      : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                  ]"
+                  @click="(e) => form.schedule_type === 'fixed' && (e.target as HTMLInputElement).showPicker?.()"
+                />
+              </div>
+
+              <!-- Shift End Time -->
+              <div class="space-y-1.5 flex flex-col">
+                <div class="flex items-center justify-between min-h-[22px] gap-1">
+                  <label class="text-xs font-semibold truncate" :class="form.schedule_type === 'fixed' ? 'text-gray-700' : 'text-gray-400'">
+                    Shift End Time {{ form.schedule_type === 'fixed' ? '*' : '' }}
+                  </label>
+                  <span
+                    v-if="form.schedule_type === 'fixed'"
+                    class="text-[9px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 whitespace-nowrap"
+                  >
+                    Required
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap"
+                  >
+                    Ignored
+                  </span>
+                </div>
+                <input
+                  v-model="form.end_time"
+                  type="time"
+                  :disabled="form.schedule_type === 'flexible'"
+                  :required="form.schedule_type === 'fixed'"
+                  class="w-full h-[38px] px-3 rounded-xl border text-xs focus:outline-none transition-all font-mono [color-scheme:light]"
+                  :class="[
+                    form.schedule_type === 'fixed'
+                      ? 'bg-white border-gray-200 text-gray-900 focus:border-teal-500 cursor-pointer shadow-sm'
+                      : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                  ]"
+                  @click="(e) => form.schedule_type === 'fixed' && (e.target as HTMLInputElement).showPicker?.()"
+                />
+              </div>
+
+              <!-- Min Work Hours -->
+              <div class="space-y-1.5 flex flex-col">
+                <div class="flex items-center justify-between min-h-[22px] gap-1">
+                  <label class="text-xs font-semibold text-gray-700 truncate">Min Work Hours *</label>
+                  <span
+                    v-if="form.schedule_type === 'fixed'"
+                    class="text-[9px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 whitespace-nowrap"
+                  >
+                    Auto
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 whitespace-nowrap"
+                  >
+                    Editable
+                  </span>
+                </div>
+                <div class="relative h-[38px]">
+                  <input
+                    v-model.number="form.min_work_hours"
+                    type="number"
+                    step="0.5"
+                    min="1"
+                    max="24"
+                    required
+                    :readonly="form.schedule_type === 'fixed'"
+                    class="w-full h-[38px] px-3 pr-16 rounded-xl border font-mono text-xs focus:outline-none transition-all"
+                    :class="[
+                      form.schedule_type === 'fixed'
+                        ? 'bg-gray-100/80 border-gray-200 text-gray-700 cursor-not-allowed font-bold'
+                        : 'bg-white border-purple-300 text-purple-900 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 shadow-sm font-bold'
+                    ]"
+                  />
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-gray-400 select-none pointer-events-none">
+                    hrs/day
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Informational Notice -->
+            <div
+              v-if="form.schedule_type === 'fixed'"
+              class="text-[11px] text-teal-700 bg-teal-50/70 border border-teal-200/80 rounded-xl px-3 py-2 flex items-center gap-2"
+            >
+              <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-teal-600 shrink-0" />
+              <span>
+                Fixed Schedule: Shift runs from <strong>{{ form.start_time }}</strong> to <strong>{{ form.end_time }}</strong>. Minimum required hours dynamically computed as <strong>{{ form.min_work_hours }} hrs/day</strong>.
+              </span>
+            </div>
+            <div
+              v-else
+              class="text-[11px] text-purple-700 bg-purple-50/70 border border-purple-200/80 rounded-xl px-3 py-2 flex items-center gap-2"
+            >
+              <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-purple-600 shrink-0" />
+              <span>
+                Flexible Schedule: Shift start and end timings are <strong>ignored</strong>. Minimum work hours can be adjusted directly (currently <strong>{{ form.min_work_hours }} hrs/day</strong>).
+              </span>
+            </div>
+
+            <!-- Grace Period & Shift Pattern Sub-row -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-gray-200/70">
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-gray-700">Punch-in Grace (Minutes)</label>
+                <input
+                  v-model.number="form.punch_in_grace"
+                  type="number"
+                  min="0"
+                  max="60"
+                  class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-900 text-xs focus:border-teal-500 focus:outline-none"
+                />
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-gray-700">Shift Pattern</label>
+                <select
+                  v-model="form.shift_pattern"
+                  class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-900 text-xs focus:border-teal-500 focus:outline-none"
+                >
+                  <option value="day">Day Shift</option>
+                  <option value="night">Night Shift</option>
+                  <option value="rotational">Rotational</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -481,7 +679,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useAdminStore, type AdminEmployee } from "~/stores/admin";
 import { useSystemConfigStore } from "~/stores/systemConfig";
 
@@ -491,6 +689,7 @@ const supabase = useSupabaseClient();
 
 const searchQuery = ref("");
 const selectedDepartment = ref<number | "ALL">("ALL");
+const selectedScheduleType = ref("ALL");
 const selectedMode = ref("ALL");
 const isRefreshing = ref(false);
 
@@ -509,8 +708,11 @@ const availableDays = [
 ];
 
 const form = ref({
+  schedule_type: "fixed" as "fixed" | "flexible",
+  min_work_hours: 8,
   start_time: "09:30",
   end_time: "18:30",
+  shift_pattern: "day",
   punch_in_grace: 12,
   wfm_allowed: false,
   office_location: systemConfigStore.officeLocation || "28.560247, 77.199301",
@@ -525,6 +727,14 @@ const form = ref({
 // Computed Stats
 const totalWithSchedule = computed(() => {
   return adminStore.employees.filter((e) => e.work_schedule).length;
+});
+
+const fixedCount = computed(() => {
+  return adminStore.employees.filter((e) => (e.work_schedule?.schedule_type || "fixed") === "fixed").length;
+});
+
+const flexibleCount = computed(() => {
+  return adminStore.employees.filter((e) => e.work_schedule?.schedule_type === "flexible").length;
 });
 
 const wfmCount = computed(() => {
@@ -553,6 +763,12 @@ const filteredEmployees = computed(() => {
       return false;
     }
 
+    if (selectedScheduleType.value !== "ALL") {
+      const empType = emp.work_schedule?.schedule_type || "fixed";
+      if (selectedScheduleType.value === "fixed" && empType !== "fixed") return false;
+      if (selectedScheduleType.value === "flexible" && empType !== "flexible") return false;
+    }
+
     if (selectedMode.value === "WFM" && !emp.work_schedule?.wfm_allowed) return false;
     if (selectedMode.value === "OFFICE" && (!emp.work_schedule || emp.work_schedule?.wfm_allowed)) return false;
     if (selectedMode.value === "NO_SCHEDULE" && emp.work_schedule) return false;
@@ -572,6 +788,47 @@ function formatTime(val: string | null | undefined): string {
   if (!val) return "--:--";
   return val.slice(0, 5);
 }
+
+function calculateHoursBetween(start: string, end: string): number {
+  if (!start || !end) return 0;
+  const startParts = start.split(":");
+  const endParts = end.split(":");
+  const sH = Number(startParts[0]);
+  const sM = Number(startParts[1]);
+  const eH = Number(endParts[0]);
+  const eM = Number(endParts[1]);
+  if (Number.isNaN(sH) || Number.isNaN(sM) || Number.isNaN(eH) || Number.isNaN(eM)) return 0;
+  let startMinutes = sH * 60 + sM;
+  let endMinutes = eH * 60 + eM;
+  if (endMinutes < startMinutes) {
+    endMinutes += 24 * 60; // Crosses midnight
+  }
+  const diffMinutes = endMinutes - startMinutes;
+  const hours = diffMinutes / 60;
+  return Math.round(hours * 10) / 10;
+}
+
+function setScheduleType(type: "fixed" | "flexible") {
+  form.value.schedule_type = type;
+  if (type === "fixed") {
+    if (!form.value.start_time) form.value.start_time = "09:30";
+    if (!form.value.end_time) form.value.end_time = "18:30";
+    form.value.min_work_hours = calculateHoursBetween(form.value.start_time, form.value.end_time);
+  } else {
+    if (!form.value.min_work_hours || form.value.min_work_hours <= 0) {
+      form.value.min_work_hours = 8;
+    }
+  }
+}
+
+watch(
+  [() => form.value.start_time, () => form.value.end_time, () => form.value.schedule_type],
+  ([newStart, newEnd, newType]) => {
+    if (newType === "fixed" && newStart && newEnd) {
+      form.value.min_work_hours = calculateHoursBetween(newStart, newEnd);
+    }
+  }
+);
 
 async function refreshData() {
   isRefreshing.value = true;
@@ -633,9 +890,21 @@ function openScheduleModal(emp: AdminEmployee) {
     });
   }
 
+  const scheduleType = (s?.schedule_type?.toLowerCase() === "flexible" ? "flexible" : "fixed") as "fixed" | "flexible";
+  const startTime = s?.start_time ? s.start_time.slice(0, 5) : "09:30";
+  const endTime = s?.end_time ? s.end_time.slice(0, 5) : "18:30";
+
+  let minHours = s?.min_work_hours ?? 8;
+  if (scheduleType === "fixed") {
+    minHours = calculateHoursBetween(startTime, endTime);
+  }
+
   form.value = {
-    start_time: s?.start_time ? s.start_time.slice(0, 5) : "09:30",
-    end_time: s?.end_time ? s.end_time.slice(0, 5) : "18:30",
+    schedule_type: scheduleType,
+    min_work_hours: minHours,
+    start_time: startTime,
+    end_time: endTime,
+    shift_pattern: s?.shift_pattern || "day",
     punch_in_grace: s?.punch_in_grace ?? 12,
     wfm_allowed: s?.wfm_allowed ?? false,
     office_location: s?.office_location || systemConfigStore.officeLocation || "28.560247, 77.199301",
@@ -654,11 +923,16 @@ async function saveSchedule() {
   isSaving.value = true;
 
   try {
+    const isFlexible = form.value.schedule_type === "flexible";
+
     const payload = {
       employee_id: activeEmp.value.id,
-      start_time: `${form.value.start_time}:00`,
-      end_time: `${form.value.end_time}:00`,
+      schedule_type: form.value.schedule_type,
+      min_work_hours: form.value.min_work_hours || 8,
+      start_time: isFlexible ? null : (form.value.start_time ? `${form.value.start_time}:00` : null),
+      end_time: isFlexible ? null : (form.value.end_time ? `${form.value.end_time}:00` : null),
       punch_in_grace: form.value.punch_in_grace,
+      shift_pattern: form.value.shift_pattern || "day",
       wfm_allowed: form.value.wfm_allowed,
       office_location: form.value.office_location,
       office_radius: form.value.office_radius,
@@ -667,8 +941,6 @@ async function saveSchedule() {
       work_location_names: form.value.work_location_names ? form.value.work_location_names.trim().toLowerCase() : null,
       work_location_radius: form.value.work_location_radius || 100,
       weekdays: form.value.weekdays.map((d) => String(d).toLowerCase().trim()),
-      schedule_type: "fixed",
-      shift_pattern: "day",
       updated_at: new Date().toISOString(),
     };
 

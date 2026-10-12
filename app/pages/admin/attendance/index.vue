@@ -105,9 +105,9 @@
           <option value="present">Present</option>
           <option value="late">Late Arrival</option>
           <option value="early_departure">Early Departure</option>
-          <option value="half_day">Half Day</option>
+          <option value="half-day">Half Day</option>
           <option value="absent">Absent</option>
-          <option value="on_leave">On Leave</option>
+          <option value="leave">On Leave</option>
         </select>
 
         <!-- Face Verification Filter -->
@@ -249,9 +249,23 @@
 
               <!-- Work Hours -->
               <td class="py-3.5 px-4">
-                <div class="font-mono font-bold text-gray-900 text-xs">
-                  {{ rec.work_hours ? `${Number(rec.work_hours).toFixed(2)}h` : '0.00h' }}
+                <div v-if="getRecordWorkHours(rec) > 0" class="space-y-0.5">
+                  <div class="font-bold text-gray-900 text-xs">
+                    {{ formatWorkHours(getRecordWorkHours(rec)) }}
+                  </div>
+                  <div class="text-[10px] font-mono text-gray-400">
+                    {{ Number(getRecordWorkHours(rec)).toFixed(2) }}h
+                  </div>
                 </div>
+                <div v-else-if="rec.punch_in && !rec.punch_out" class="space-y-0.5">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                    In Progress
+                  </span>
+                </div>
+                <span v-else class="text-gray-400 italic text-[11px]">
+                  {{ formatWorkHours(0) }}
+                </span>
               </td>
 
               <!-- Status & Flags -->
@@ -261,12 +275,13 @@
                     :class="[
                       'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider',
                       rec.status === 'present' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                      rec.status === 'half_day' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                      (rec.status === 'half-day' || rec.status === 'half_day') ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                      (rec.status === 'leave' || rec.status === 'on_leave') ? 'bg-blue-50 text-blue-700 border border-blue-200' :
                       rec.status === 'absent' ? 'bg-red-50 text-red-700 border border-red-200' :
                       'bg-gray-100 text-gray-700'
                     ]"
                   >
-                    {{ rec.status || 'present' }}
+                    {{ rec.status === 'leave' || rec.status === 'on_leave' ? 'LEAVE' : (rec.status === 'half-day' || rec.status === 'half_day' ? 'HALF DAY' : (rec.status || 'present')) }}
                   </span>
 
                   <!-- Face Verification Badges -->
@@ -332,14 +347,6 @@
                   >
                     <UIcon name="i-heroicons-pencil-square" class="w-4 h-4" />
                   </button>
-
-                  <button
-                    class="p-1.5 rounded-lg bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-700 transition-colors"
-                    title="Delete Punch Log"
-                    @click="deleteRecord(rec)"
-                  >
-                    <UIcon name="i-heroicons-trash" class="w-4 h-4" />
-                  </button>
                 </div>
               </td>
             </tr>
@@ -396,6 +403,7 @@
                 step="1"
                 class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer [color-scheme:light]"
                 @click="(e) => (e.target as HTMLInputElement).showPicker?.()"
+                @change="onEditPunchTimeChange"
               />
             </div>
 
@@ -408,6 +416,7 @@
                 step="1"
                 class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer [color-scheme:light]"
                 @click="(e) => (e.target as HTMLInputElement).showPicker?.()"
+                @change="onEditPunchTimeChange"
               />
             </div>
 
@@ -419,15 +428,20 @@
                 class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:border-emerald-500 focus:outline-none"
               >
                 <option value="present">Present</option>
-                <option value="half_day">Half Day</option>
+                <option value="half-day">Half Day</option>
                 <option value="absent">Absent</option>
-                <option value="on_leave">On Leave</option>
+                <option value="leave">On Leave</option>
               </select>
             </div>
 
             <!-- Work Hours -->
             <div class="space-y-1">
-              <label class="text-xs font-semibold text-gray-700">Work Hours</label>
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-gray-700">Work Hours</label>
+                <span v-if="editForm.work_hours > 0" class="text-[10px] text-blue-600 font-medium">
+                  {{ formatWorkHours(editForm.work_hours) }}
+                </span>
+              </div>
               <input
                 v-model.number="editForm.work_hours"
                 type="number"
@@ -595,9 +609,9 @@
                 class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:outline-none"
               >
                 <option value="present">Present</option>
-                <option value="half_day">Half Day</option>
+                <option value="half-day">Half Day</option>
                 <option value="absent">Absent</option>
-                <option value="on_leave">On Leave</option>
+                <option value="leave">On Leave</option>
               </select>
             </div>
             <div class="space-y-1">
@@ -774,8 +788,14 @@ const filteredRecords = computed(() => {
     if (selectedStatus.value !== "ALL") {
       if (selectedStatus.value === "late" && !rec.is_late) return false;
       if (selectedStatus.value === "early_departure" && !rec.is_early_departure) return false;
-      if (selectedStatus.value !== "late" && selectedStatus.value !== "early_departure" && rec.status !== selectedStatus.value) {
-        return false;
+      if (selectedStatus.value !== "late" && selectedStatus.value !== "early_departure") {
+        if (selectedStatus.value === "leave") {
+          if (rec.status !== "leave" && rec.status !== "on_leave") return false;
+        } else if (selectedStatus.value === "half-day") {
+          if (rec.status !== "half-day" && rec.status !== "half_day") return false;
+        } else if (rec.status !== selectedStatus.value) {
+          return false;
+        }
       }
     }
 
@@ -809,9 +829,54 @@ const earlyCount = computed(() => {
 
 const avgWorkHours = computed(() => {
   if (attendanceRecords.value.length === 0) return "0.0";
-  const sum = attendanceRecords.value.reduce((acc, curr) => acc + (Number(curr.work_hours) || 0), 0);
+  const sum = attendanceRecords.value.reduce((acc, curr) => acc + (getRecordWorkHours(curr) || 0), 0);
   return (sum / attendanceRecords.value.length).toFixed(1);
 });
+
+function getRecordWorkHours(rec: AttendanceRecord): number {
+  if (rec.work_hours && Number(rec.work_hours) > 0) {
+    return Number(rec.work_hours);
+  }
+  if (rec.punch_in && rec.punch_out) {
+    const diffMs = new Date(rec.punch_out).getTime() - new Date(rec.punch_in).getTime();
+    if (diffMs > 0) {
+      return Number((diffMs / (1000 * 60 * 60)).toFixed(2));
+    }
+  }
+  return 0;
+}
+
+function formatWorkHours(hours: number | null | undefined): string {
+  if (!hours || hours <= 0) return "Not recorded";
+
+  let wholeHours = Math.floor(hours);
+  let minutes = Math.round((hours % 1) * 60);
+
+  if (minutes === 60) {
+    wholeHours += 1;
+    minutes = 0;
+  }
+
+  if (wholeHours === 0 && minutes > 0) {
+    return `${minutes} minutes`;
+  }
+  if (minutes === 0) {
+    return `${wholeHours} hours`;
+  }
+  return `${wholeHours} hours ${minutes} minutes`;
+}
+
+function onEditPunchTimeChange() {
+  if (editForm.value.punch_in_time && editForm.value.punch_out_time && activeRecord.value) {
+    const d = activeRecord.value.date;
+    const inDate = new Date(`${d}T${editForm.value.punch_in_time}`);
+    const outDate = new Date(`${d}T${editForm.value.punch_out_time}`);
+    const diff = outDate.getTime() - inDate.getTime();
+    if (diff > 0) {
+      editForm.value.work_hours = Number((diff / (1000 * 60 * 60)).toFixed(2));
+    }
+  }
+}
 
 function getInitials(name: string): string {
   if (!name) return "EM";
@@ -837,15 +902,19 @@ function formatTimeWithSeconds(ts: string): string {
 // Edit Modal
 function openEditModal(rec: AttendanceRecord) {
   activeRecord.value = rec;
+  let statusVal = rec.status || "present";
+  if (statusVal === "on_leave") statusVal = "leave";
+  if (statusVal === "half_day") statusVal = "half-day";
+
   editForm.value = {
     punch_in_time: rec.punch_in ? rec.punch_in.split("T")[1]?.slice(0, 8) || "" : "",
     punch_out_time: rec.punch_out ? rec.punch_out.split("T")[1]?.slice(0, 8) || "" : "",
-    status: rec.status || "present",
+    status: statusVal,
     is_late: rec.is_late || false,
     late_minutes: rec.late_minutes || 0,
     is_early_departure: rec.is_early_departure || false,
     early_departure_minutes: rec.early_departure_minutes || 0,
-    work_hours: Number(rec.work_hours) || 0,
+    work_hours: Number(rec.work_hours) || getRecordWorkHours(rec),
     remarks: rec.remarks || rec.comment || "",
   };
   isEditModalOpen.value = true;

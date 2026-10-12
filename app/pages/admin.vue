@@ -220,6 +220,7 @@ const navItems = computed<AdminNavItem[]>(() => {
     { label: "Overview", path: "/admin", icon: "i-heroicons-squares-2x2" },
     { label: "Employees", path: "/admin/employees", icon: "i-heroicons-users" },
     { label: "Attendance Control", path: "/admin/attendance", icon: "i-heroicons-clock" },
+    { label: "Request History", path: "/admin/requests", icon: "i-heroicons-clipboard-document-list" },
   ];
 
   // SPANCO Pipeline module toggle

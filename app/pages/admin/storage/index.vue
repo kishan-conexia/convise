@@ -50,7 +50,7 @@
           <div class="text-sm font-black text-gray-900 truncate">Employee Documents</div>
           <div class="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Private RLS Protected
+            Private & Secured
           </div>
         </div>
       </div>
@@ -252,19 +252,21 @@
         <div
           v-for="req in filteredRequests"
           :key="req.id"
-          class="p-5 rounded-2xl bg-white border border-gray-200 hover:border-emerald-300 hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-5"
+          class="p-5 rounded-2xl bg-white border border-gray-200 hover:border-emerald-400 hover:shadow-lg transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-5 cursor-pointer group"
+          title="Click to view request details"
+          @click="openReviewModal(req)"
         >
           <!-- Left: Employee & Document Information -->
           <div class="flex items-start gap-4 min-w-0">
             <!-- Employee Avatar -->
-            <div class="w-11 h-11 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-md">
+            <div class="w-11 h-11 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-md group-hover:scale-105 transition-transform">
               {{ getInitials(req.profiles?.full_name || 'Staff') }}
             </div>
 
             <!-- Details -->
             <div class="space-y-1.5 min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <span class="text-sm font-black text-gray-900 truncate">
+                <span class="text-sm font-black text-gray-900 group-hover:text-emerald-700 transition-colors truncate">
                   {{ req.profiles?.full_name || 'Unknown Employee' }}
                 </span>
                 <span class="text-[11px] px-2 py-0.5 rounded-md bg-gray-100 font-mono font-bold text-gray-600">
@@ -286,16 +288,26 @@
               </div>
 
               <!-- Document Type & Extracted Number -->
-              <div class="flex flex-wrap items-center gap-3 text-xs text-gray-600">
+              <div class="flex flex-wrap items-center gap-2.5 text-xs text-gray-600">
                 <div class="inline-flex items-center gap-1 font-semibold text-emerald-800">
                   <UIcon :name="getDocIcon(req.documentType)" class="w-4 h-4 text-emerald-600" />
-                  <span>{{ formatDocType(req.documentType) }}</span>
+                  <span>{{ isProfileUpdateRequest(req) ? getSubtypeLabel(req.new_data?.subtype || req.documentType) : formatDocType(req.documentType) }}</span>
                 </div>
 
-                <span v-if="req.documentNumber" class="text-gray-400">•</span>
-                <span v-if="req.documentNumber" class="font-mono text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-200 text-[11px]">
-                  # {{ req.documentNumber }}
-                </span>
+                <!-- Profile Field Summary Pill if profile update -->
+                <template v-if="isProfileUpdateRequest(req)">
+                  <span class="text-gray-400">•</span>
+                  <span class="font-semibold text-gray-800 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md text-[11px] truncate max-w-xs shadow-2xs">
+                    {{ getRequestSummary(req) }}
+                  </span>
+                </template>
+
+                <template v-if="req.documentNumber">
+                  <span class="text-gray-400">•</span>
+                  <span class="font-mono text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-200 text-[11px]">
+                    # {{ req.documentNumber }}
+                  </span>
+                </template>
 
                 <!-- Bank Details Summary if cheque/passbook -->
                 <template v-if="req.isBankDoc && req.new_data">
@@ -338,16 +350,15 @@
           </div>
 
           <!-- Right: Action Buttons -->
-          <div class="flex items-center gap-2 shrink-0 self-end lg:self-center">
-            <!-- Inspect Document Button (Only shown when request has an attachment) -->
+          <div class="flex items-center gap-2 shrink-0 self-end lg:self-center" @click.stop>
+            <!-- Inspect / View Details Button -->
             <button
-              v-if="hasAttachment(req)"
               type="button"
               class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-200 transition-colors"
-              @click="openReviewModal(req)"
+              @click.stop="openReviewModal(req)"
             >
               <UIcon name="i-heroicons-eye" class="w-4 h-4" />
-              <span>Inspect</span>
+              <span>{{ hasAttachment(req) ? 'Inspect' : 'Details' }}</span>
             </button>
 
             <!-- Mark Under Review (For pending) -->
@@ -1035,6 +1046,7 @@
 
               <!-- Delete Button -->
               <button
+                v-if="!isProtectedStorageFile(item.name)"
                 type="button"
                 class="p-1.5 rounded-lg bg-white hover:bg-rose-50 text-gray-400 hover:text-rose-600 border border-gray-200 shadow-sm transition-colors"
                 title="Delete File"
@@ -1071,7 +1083,12 @@
           <div>
             <div class="flex items-center gap-2">
               <h3 class="text-base font-bold text-gray-900">
-                Document Inspection • {{ formatDocType(selectedReviewRequest.documentType) }}
+                <template v-if="isProfileUpdateRequest(selectedReviewRequest)">
+                  Profile Update Review • {{ getSubtypeLabel(selectedReviewRequest.new_data?.subtype || selectedReviewRequest.documentType) }}
+                </template>
+                <template v-else>
+                  Document Inspection • {{ formatDocType(selectedReviewRequest.documentType) }}
+                </template>
               </h3>
               <span
                 class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase"
@@ -1092,7 +1109,7 @@
         <!-- Modal Body (Split layout: Previews & Info) -->
         <div class="flex-1 overflow-y-auto space-y-6 pr-1">
           <!-- Document Preview Images -->
-          <div class="space-y-3">
+          <div v-if="hasAttachment(selectedReviewRequest)" class="space-y-3">
             <h4 class="text-xs font-bold uppercase tracking-wider text-gray-400">Attached Staging Documents</h4>
 
             <div v-if="isLoadingPreviewUrls" class="py-12 text-center space-y-2 bg-gray-50 rounded-2xl">
@@ -1152,6 +1169,260 @@
             </div>
           </div>
 
+          <!-- Profile Field Update Details Section (Shown when request is a profile update) -->
+          <div v-if="isProfileUpdateRequest(selectedReviewRequest)" class="space-y-4">
+            <!-- Simple Profile / Family Field Update (dob, address, marital status, father, mother, spouse) -->
+            <div
+              v-if="selectedReviewRequest.new_data?.subtype === 'profile_field' || selectedReviewRequest.new_data?.subtype === 'family_field' || selectedReviewRequest.new_data?.field"
+              class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-sm space-y-4"
+            >
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60">
+                    <UIcon name="i-heroicons-pencil-square" class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-gray-900">
+                      {{ getFieldLabel(selectedReviewRequest) }}
+                    </h4>
+                    <p class="text-[11px] text-gray-500">
+                      {{ getSubtypeLabel(selectedReviewRequest.new_data?.subtype) }}
+                    </p>
+                  </div>
+                </div>
+                <span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  Field Update
+                </span>
+              </div>
+
+              <!-- Comparison Diff View: Old vs New -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Old Value -->
+                <div class="p-4 rounded-xl bg-gray-50/90 border border-gray-200 space-y-1.5">
+                  <div class="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    <UIcon name="i-heroicons-clock" class="w-3.5 h-3.5 text-gray-400" />
+                    <span>Current Profile Value</span>
+                  </div>
+                  <div class="text-xs font-semibold text-gray-600">
+                    <span v-if="selectedReviewRequest.new_data?.old_value" class="text-gray-800 break-words font-mono">
+                      {{ selectedReviewRequest.new_data.old_value }}
+                    </span>
+                    <span v-else class="text-gray-400 italic">
+                      (Empty / Not set)
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Requested New Value -->
+                <div class="p-4 rounded-xl bg-emerald-50/90 border border-emerald-200 space-y-1.5">
+                  <div class="flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+                    <UIcon name="i-heroicons-check-circle" class="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Requested New Value</span>
+                  </div>
+                  <div class="text-xs font-bold text-emerald-950 break-words font-mono">
+                    {{ selectedReviewRequest.new_data?.value || selectedReviewRequest.new_data?.field_value || '-' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Children Update -->
+            <div
+              v-else-if="selectedReviewRequest.new_data?.subtype === 'children'"
+              class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-sm space-y-4"
+            >
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-200/60">
+                    <UIcon name="i-heroicons-user-group" class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-gray-900">Children Records</h4>
+                    <p class="text-[11px] text-gray-500">
+                      {{ (selectedReviewRequest.new_data?.value || []).length }} Child(ren) Submitted
+                    </p>
+                  </div>
+                </div>
+                <span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                  Family Update
+                </span>
+              </div>
+
+              <!-- Children Cards Grid -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  v-for="(child, idx) in (selectedReviewRequest.new_data?.value || [])"
+                  :key="idx"
+                  class="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-2"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-100/70 text-teal-800 font-mono">
+                      Child {{ idx + 1 }}
+                    </span>
+                    <span
+                      v-if="child.gender"
+                      class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase"
+                      :class="String(child.gender).toLowerCase() === 'female' ? 'bg-pink-50 text-pink-700 border border-pink-200' : 'bg-blue-50 text-blue-700 border border-blue-200'"
+                    >
+                      {{ child.gender }}
+                    </span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Child Name</span>
+                    <span class="text-xs font-bold text-gray-900">{{ child.name || 'N/A' }}</span>
+                  </div>
+                  <div v-if="child.dob">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Date of Birth</span>
+                    <span class="text-xs font-mono text-gray-700 flex items-center gap-1 mt-0.5">
+                      <UIcon name="i-heroicons-calendar" class="w-3.5 h-3.5 text-gray-400" />
+                      {{ child.dob }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Previous Children List (if on file) -->
+              <div v-if="Array.isArray(selectedReviewRequest.new_data?.old_value) && selectedReviewRequest.new_data.old_value.length > 0" class="pt-3 border-t border-gray-100 space-y-2">
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Previous Children Records on File</span>
+                <div class="text-[11px] text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-200/80 space-y-1.5">
+                  <div v-for="(oldChild, oIdx) in selectedReviewRequest.new_data.old_value" :key="oIdx" class="flex items-center gap-2">
+                    <span class="text-gray-400 font-mono text-[10px]">#{{ oIdx + 1 }}</span>
+                    <span class="font-semibold text-gray-800">{{ oldChild.name }}</span>
+                    <span class="text-gray-300">•</span>
+                    <span>{{ oldChild.gender }}</span>
+                    <span class="text-gray-300">•</span>
+                    <span class="font-mono text-gray-500">{{ oldChild.dob }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Nominees Update -->
+            <div
+              v-else-if="selectedReviewRequest.new_data?.subtype === 'nominees'"
+              class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-sm space-y-4"
+            >
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-200/60">
+                    <UIcon name="i-heroicons-shield-check" class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-gray-900">Nominees Records</h4>
+                    <p class="text-[11px] text-gray-500">
+                      {{ (selectedReviewRequest.new_data?.value || []).length }} Nominee(s) Nominated
+                    </p>
+                  </div>
+                </div>
+                <span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-mono">
+                  Total Share: {{ calculateTotalNomineeShare(selectedReviewRequest.new_data?.value) }}%
+                </span>
+              </div>
+
+              <!-- Nominees Cards Grid -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  v-for="(nominee, idx) in (selectedReviewRequest.new_data?.value || [])"
+                  :key="idx"
+                  class="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-2"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-100/70 text-purple-800 font-mono">
+                      Nominee {{ idx + 1 }}
+                    </span>
+                    <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {{ nominee.share_percentage || 0 }}% Share
+                    </span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Nominee Name</span>
+                    <span class="text-xs font-bold text-gray-900">{{ nominee.name || 'N/A' }}</span>
+                  </div>
+                  <div v-if="nominee.relation">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Relationship</span>
+                    <span class="text-xs font-semibold text-gray-700 flex items-center gap-1 mt-0.5">
+                      <UIcon name="i-heroicons-heart" class="w-3.5 h-3.5 text-purple-500" />
+                      {{ nominee.relation }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Previous Nominees on File -->
+              <div v-if="Array.isArray(selectedReviewRequest.new_data?.old_value) && selectedReviewRequest.new_data.old_value.length > 0" class="pt-3 border-t border-gray-100 space-y-2">
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Previous Nominees on File</span>
+                <div class="text-[11px] text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-200/80 space-y-1.5">
+                  <div v-for="(oldNom, oIdx) in selectedReviewRequest.new_data.old_value" :key="oIdx" class="flex items-center gap-2">
+                    <span class="text-gray-400 font-mono text-[10px]">#{{ oIdx + 1 }}</span>
+                    <span class="font-semibold text-gray-800">{{ oldNom.name }}</span>
+                    <span class="text-gray-300">•</span>
+                    <span>{{ oldNom.relation }}</span>
+                    <span class="text-gray-300">•</span>
+                    <span class="font-mono text-purple-700 font-bold">{{ oldNom.share_percentage }}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Device Change Update -->
+            <div
+              v-else-if="selectedReviewRequest.documentType === 'device_change' || selectedReviewRequest.new_data?.subtype === 'device_change' || selectedReviewRequest.new_data?.device_info"
+              class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-sm space-y-4"
+            >
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-200/60">
+                    <UIcon name="i-heroicons-device-phone-mobile" class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-gray-900">Device Binding Registration</h4>
+                    <p class="text-[11px] text-gray-500">Employee Device Binding Request</p>
+                  </div>
+                </div>
+                <span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                  Device Change
+                </span>
+              </div>
+
+              <!-- Device Properties Grid -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Platform / OS</span>
+                  <span class="font-bold text-gray-900">{{ selectedReviewRequest.new_data?.device_info?.platform || selectedReviewRequest.new_data?.device_info?.systemName || '-' }}</span>
+                </div>
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Device Model</span>
+                  <span class="font-bold text-gray-900">{{ selectedReviewRequest.new_data?.device_info?.model || selectedReviewRequest.new_data?.device_info?.deviceName || selectedReviewRequest.new_data?.device_info?.name || '-' }}</span>
+                </div>
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Manufacturer</span>
+                  <span class="font-bold text-gray-900">{{ selectedReviewRequest.new_data?.device_info?.manufacturer || '-' }}</span>
+                </div>
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1 sm:col-span-2 lg:col-span-3">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Device Identifier</span>
+                  <span class="font-mono text-gray-800 text-[11px] block select-all">{{ selectedReviewRequest.new_data?.device_info?.identifier || selectedReviewRequest.new_data?.device_info?.deviceId || selectedReviewRequest.new_data?.device_info?.uuid || '-' }}</span>
+                </div>
+              </div>
+
+              <!-- Reason for change -->
+              <div v-if="selectedReviewRequest.new_data?.reason" class="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1">
+                <span class="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Reason for Device Change</span>
+                <p class="text-xs text-amber-950">{{ selectedReviewRequest.new_data.reason }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Non-attachment info notice (Only for non-profile requests that have no file) -->
+          <div v-else-if="!hasAttachment(selectedReviewRequest)" class="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-start gap-3">
+            <UIcon name="i-heroicons-information-circle" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div class="space-y-0.5">
+              <h5 class="text-xs font-bold text-amber-900">Direct Information Request (No File Attached)</h5>
+              <p class="text-[11px] text-amber-700">
+                This request was submitted without an uploaded document file. Review the submitted metadata details and notes below.
+              </p>
+            </div>
+          </div>
+
           <!-- Metadata Fields Grid -->
           <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200/80 space-y-3">
             <div class="flex items-center justify-between">
@@ -1176,8 +1447,17 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
               <div>
-                <span class="text-gray-400 block text-[10px] uppercase font-bold">Document Type</span>
-                <span class="font-bold text-gray-900">{{ formatDocType(selectedReviewRequest.documentType) }}</span>
+                <span class="text-gray-400 block text-[10px] uppercase font-bold">Request Type</span>
+                <span class="font-bold text-gray-900">
+                  {{ isProfileUpdateRequest(selectedReviewRequest) ? 'Profile Update' : formatDocType(selectedReviewRequest.documentType) }}
+                </span>
+              </div>
+
+              <div v-if="isProfileUpdateRequest(selectedReviewRequest)">
+                <span class="text-gray-400 block text-[10px] uppercase font-bold">Category</span>
+                <span class="font-bold text-gray-900">
+                  {{ getSubtypeLabel(selectedReviewRequest.new_data?.subtype || selectedReviewRequest.documentType) }}
+                </span>
               </div>
 
               <div v-if="selectedReviewRequest.documentNumber">
@@ -1894,13 +2174,16 @@ const previewUrlBack = ref<string | null>(null);
 const previewUrlSingle = ref<string | null>(null);
 
 async function openReviewModal(req: DocumentRequest) {
-  if (!hasAttachment(req)) return;
   selectedReviewRequest.value = req;
   isReviewModalOpen.value = true;
-  isLoadingPreviewUrls.value = true;
+  isLoadingPreviewUrls.value = hasAttachment(req);
   previewUrlFront.value = null;
   previewUrlBack.value = null;
   previewUrlSingle.value = null;
+
+  if (!hasAttachment(req)) {
+    return;
+  }
 
   try {
     const isApproved = normalizeStatus(req.status) === "approved";
@@ -1960,6 +2243,21 @@ async function openReviewModal(req: DocumentRequest) {
   }
 }
 
+// Safe Storage File Move Helper
+async function moveStorageFile(fromPath: string, toPath: string) {
+  try {
+    await (supabase as any).storage.from("profile-documents").remove([toPath]);
+  } catch (_) {}
+  const { error } = await (supabase as any).storage.from("profile-documents").move(fromPath, toPath);
+  if (error) {
+    console.warn(`Move ${fromPath} -> ${toPath} warning:`, error.message);
+    const { error: copyErr } = await (supabase as any).storage.from("profile-documents").copy(fromPath, toPath);
+    if (!copyErr) {
+      await (supabase as any).storage.from("profile-documents").remove([fromPath]);
+    }
+  }
+}
+
 // Approve Request Workflow
 async function approveRequest(req: DocumentRequest) {
   if (!confirm(`Are you sure you want to approve ${formatDocType(req.documentType)} for ${req.profiles?.full_name}?`)) {
@@ -1971,21 +2269,22 @@ async function approveRequest(req: DocumentRequest) {
     const userId = req.user_id;
     const reviewerId = userProfileStore.profile?.id || userId;
 
-    // Check if this is a profile update or device change (non-document request)
-    const isProfileUpdate =
-      req.request_type === "profile_update" ||
-      req.request_type === "device_change" ||
-      !req.new_data?.document_type ||
-      req.documentType === "device_change" ||
-      [
-        "device_change",
-        "profile_field",
-        "family_field",
-        "children",
-        "nominees",
-      ].includes(req.new_data?.subtype);
+    // Check if this is a document request (Aadhaar, PAN, Passport, Bank, etc.) vs a field/family/device update
+    const rawDocType =
+      req.new_data?.document_type ||
+      req.new_data?.doc_type ||
+      req.new_data?.documentType ||
+      "";
 
-    if (isProfileUpdate) {
+    const isDocumentRequest = Boolean(
+      rawDocType ||
+      req.new_data?.staging_path ||
+      req.new_data?.staging_path_front ||
+      req.isDualAadhaar ||
+      (req.documentType && !["device_change", "profile_field", "family_field", "children", "nominees"].includes(req.documentType))
+    );
+
+    if (!isDocumentRequest) {
       // Universal RPC for profile / device change requests (no storage file operations needed)
       const { error: rpcErr } = await (supabase as any).rpc("approve_profile_update_request", {
         p_request_id: req.id,
@@ -2038,13 +2337,17 @@ async function approveRequest(req: DocumentRequest) {
     }
 
     // Document upload request workflow: move file in storage & update profile_details
-    const docType = req.documentType;
+    const docType = rawDocType || req.documentType;
     const dateFolder = req.new_data?.date_folder || new Date().toISOString().split("T")[0];
 
     let permanentPath = "";
     let permanentPathBack: string | null = null;
 
-    if (req.isDualAadhaar) {
+    const isDual =
+      (docType === "aadhaar" || req.isDualAadhaar) &&
+      Boolean(req.new_data?.staging_path_front && req.new_data?.staging_path_back);
+
+    if (isDual) {
       const frontStaging = req.new_data.staging_path_front;
       const backStaging = req.new_data.staging_path_back;
       const frontExt = frontStaging.split(".").pop() || "jpg";
@@ -2053,24 +2356,19 @@ async function approveRequest(req: DocumentRequest) {
       const frontPerm = `${userId}/aadhaar/${dateFolder}/front.${frontExt}`;
       const backPerm = `${userId}/aadhaar/${dateFolder}/back.${backExt}`;
 
-      // Move front
-      await supabase.storage.from("profile-documents").remove([frontPerm]).catch(() => {});
-      await supabase.storage.from("profile-documents").move(frontStaging, frontPerm);
-
-      // Move back
-      await supabase.storage.from("profile-documents").remove([backPerm]).catch(() => {});
-      await supabase.storage.from("profile-documents").move(backStaging, backPerm);
+      await moveStorageFile(frontStaging, frontPerm);
+      await moveStorageFile(backStaging, backPerm);
 
       permanentPath = frontPerm;
       permanentPathBack = backPerm;
     } else {
       const stagingPath = req.new_data?.staging_path;
-      const fileName = stagingPath ? stagingPath.split("/").pop() || "document.pdf" : "document.pdf";
-      permanentPath = `${userId}/${docType}/${dateFolder}/${fileName}`;
-
       if (stagingPath) {
-        await supabase.storage.from("profile-documents").remove([permanentPath]).catch(() => {});
-        await supabase.storage.from("profile-documents").move(stagingPath, permanentPath);
+        const fileName = stagingPath.split("/").pop() || `${docType}.pdf`;
+        permanentPath = `${userId}/${docType}/${dateFolder}/${fileName}`;
+        await moveStorageFile(stagingPath, permanentPath);
+      } else {
+        permanentPath = `${userId}/${docType}/${dateFolder}/document.pdf`;
       }
     }
 
@@ -2116,19 +2414,7 @@ async function confirmRejectRequest() {
   try {
     const reviewerId = userProfileStore.profile?.id || req.user_id;
 
-    // Remove staged file(s) from profile-documents if any exist
-    const pathsToRemove: string[] = [];
-    if (req.isDualAadhaar) {
-      if (req.new_data?.staging_path_front) pathsToRemove.push(req.new_data.staging_path_front);
-      if (req.new_data?.staging_path_back) pathsToRemove.push(req.new_data.staging_path_back);
-    } else if (req.new_data?.staging_path) {
-      pathsToRemove.push(req.new_data.staging_path);
-    }
-
-    if (pathsToRemove.length > 0) {
-      await supabase.storage.from("profile-documents").remove(pathsToRemove).catch(() => {});
-    }
-
+    // Staging files are retained in storage for audit history rather than deleted
     // Call reject_document_request RPC
     const { error: rpcErr } = await (supabase as any).rpc("reject_document_request", {
       p_request_id: req.id,
@@ -3011,14 +3297,7 @@ async function handleAdminDirectUpload() {
       if (matching && matching.length > 0) {
         const reviewerId = userProfileStore.profile?.id || userId;
         for (const req of matching) {
-          const stagingFiles = [
-            req.new_data?.staging_path,
-            req.new_data?.staging_path_front,
-            req.new_data?.staging_path_back,
-          ].filter(Boolean);
-          if (stagingFiles.length > 0) {
-            await supabase.storage.from("profile-documents").remove(stagingFiles).catch(() => {});
-          }
+          // Staging documents are preserved in storage for record-keeping
           await (supabase as any)
             .from("requests")
             .update({
@@ -3107,6 +3386,17 @@ const filteredFiles = computed(() => {
 
 function isFolder(item: StorageFile): boolean {
   return !item.metadata || !item.metadata.mimetype;
+}
+
+function isProtectedStorageFile(fileName?: string): boolean {
+  const p = (currentPath.value || "").toLowerCase();
+  const f = (fileName || "").toLowerCase();
+  return (
+    p.includes("face-enrollment") ||
+    f.includes("face-enrollment") ||
+    p.includes("staging") ||
+    f.includes("staging")
+  );
 }
 
 function resolvePathLabel(segment: string, index: number): string {
@@ -3211,6 +3501,10 @@ async function downloadSignedFile(fileName: string) {
 }
 
 async function deleteFile(fileName: string) {
+  if (isProtectedStorageFile(fileName)) {
+    alert("Face enrollment and staging documents are protected and cannot be deleted from the document vault.");
+    return;
+  }
   if (!confirm(`Are you sure you want to permanently delete "${fileName}"?`)) return;
 
   try {
@@ -3243,6 +3537,67 @@ function getInitials(name?: string | null): string {
   return parts.length > 1
     ? ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase()
     : (name[0] || "").toUpperCase();
+}
+
+function getSubtypeLabel(subtype?: string): string {
+  switch (subtype) {
+    case "profile_field": return "Personal / Contact Field";
+    case "family_field": return "Family Details";
+    case "children": return "Children Details";
+    case "nominees": return "Nominees";
+    case "device_change": return "Device Change";
+    default: return subtype ? subtype.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Profile Update";
+  }
+}
+
+function getFieldLabel(req?: DocumentRequest | null): string {
+  if (!req?.new_data) return "Profile Field";
+  const d = req.new_data;
+  if (d.field_label) return d.field_label;
+  if (d.field) return d.field.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+  if (d.field_name) return d.field_name.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+  return "Profile Field";
+}
+
+function isProfileUpdateRequest(req?: DocumentRequest | null): boolean {
+  if (!req) return false;
+  const d = req.new_data || {};
+  return Boolean(
+    d.subtype ||
+    d.field ||
+    d.field_label ||
+    d.field_name ||
+    req.request_type === "device_change" ||
+    ["profile_field", "family_field", "children", "nominees", "device_change"].includes(req.documentType)
+  );
+}
+
+function getRequestSummary(req: DocumentRequest): string {
+  if (!req.new_data) return formatDocType(req.documentType);
+  const d = req.new_data;
+  const subtype = d.subtype || req.documentType;
+  if (subtype === "profile_field" || subtype === "family_field" || d.field) {
+    const label = getFieldLabel(req);
+    const val = d.value ?? d.field_value ?? "-";
+    return `${label}: ${val}`;
+  }
+  if (subtype === "children") {
+    const count = Array.isArray(d.value) ? d.value.length : 0;
+    return `${count} Child${count === 1 ? "" : "ren"}`;
+  }
+  if (subtype === "nominees") {
+    const count = Array.isArray(d.value) ? d.value.length : 0;
+    return `${count} Nominee${count === 1 ? "" : "s"}`;
+  }
+  if (subtype === "device_change") {
+    return d.device_info?.model || d.device_info?.name || "Device Change";
+  }
+  return formatDocType(req.documentType);
+}
+
+function calculateTotalNomineeShare(nominees: any): number {
+  if (!Array.isArray(nominees)) return 0;
+  return nominees.reduce((acc, curr) => acc + (Number(curr.share_percentage) || 0), 0);
 }
 
 function formatDocType(type?: string): string {

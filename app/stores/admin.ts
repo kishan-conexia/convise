@@ -76,6 +76,11 @@ export interface AdminEmployee {
   date_of_joining: string | null;
   approval_levels: number | null;
   is_active: boolean;
+  current_address?: string | null;
+  permanent_address?: string | null;
+  emergency_contacts?: any;
+  device_id?: string | null;
+  device_info?: any;
   work_schedule?: {
     id: number;
     start_time: string | null;
@@ -91,6 +96,8 @@ export interface AdminEmployee {
     work_location_radius: number | null;
     schedule_type: string | null;
     shift_pattern: string | null;
+    min_work_hours?: number | null;
+    max_work_hours?: number | null;
   } | null;
 }
 

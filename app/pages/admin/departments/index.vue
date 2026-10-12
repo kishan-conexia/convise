@@ -291,7 +291,7 @@
                 </option>
               </select>
               <p v-if="isEditing && !activeDept?.parent_id" class="text-[11px] text-gray-400">
-                Top Level Entity parent hierarchy cannot be modified here. Configure directly in the Supabase UI.
+                Top Level Entity parent hierarchy cannot be modified here. Please contact your system administrator.
               </p>
             </div>
 
@@ -315,7 +315,7 @@
                 </option>
               </select>
               <p v-if="!form.parent_id" class="text-[11px] text-gray-400">
-                Top Level Entity managers cannot be modified here. Configure directly in the Supabase UI.
+                Top Level Entity managers cannot be modified here. Please contact your system administrator.
               </p>
             </div>
 
@@ -634,7 +634,7 @@ async function saveDepartment() {
 
 async function toggleDeptStatus(dept: AdminDepartment) {
   if (!dept.parent_id) {
-    alert("Top Level Entity cannot be deactivated from the web portal. Please configure directly in the Supabase UI.");
+    alert("Top Level Entity cannot be deactivated from the web portal. Please contact your system administrator.");
     return;
   }
 

@@ -250,7 +250,7 @@
       <div v-if="feasibilityStore.isLoading && displayedRequests.length === 0" class="p-16 flex flex-col items-center justify-center text-center">
         <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-teal-600 animate-spin mb-3" />
         <p class="text-sm font-bold text-gray-800">Loading Feasibility Records...</p>
-        <p class="text-xs text-gray-500">Querying Supabase feasibility and linked lead profiles</p>
+        <p class="text-xs text-gray-500">Loading feasibility records and linked lead profiles</p>
       </div>
 
       <!-- Empty State -->

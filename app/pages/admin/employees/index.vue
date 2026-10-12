@@ -154,7 +154,8 @@
             <tr
               v-for="emp in paginatedEmployees"
               :key="emp.id"
-              class="hover:bg-emerald-50/40 transition-colors group"
+              class="hover:bg-emerald-50/40 transition-colors group cursor-pointer"
+              @click="openDetailModal(emp)"
             >
               <!-- Employee Info -->
               <td class="py-3.5 px-4">
@@ -304,12 +305,21 @@
 
               <!-- Actions -->
               <td class="py-3.5 px-4 text-right">
-                <div class="flex items-center justify-end gap-1.5">
+                <div class="flex items-center justify-end gap-1.5" @click.stop>
+                  <!-- View Full Profile Details -->
+                  <button
+                    class="p-1.5 rounded-lg bg-gray-100 hover:bg-emerald-100 text-gray-600 hover:text-emerald-700 transition-colors"
+                    title="View Full Profile Details"
+                    @click.stop="openDetailModal(emp)"
+                  >
+                    <UIcon name="i-heroicons-eye" class="w-4 h-4" />
+                  </button>
+
                   <!-- Edit Profile -->
                   <button
                     class="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 transition-colors"
                     title="Edit Profile Details"
-                    @click="openEditModal(emp)"
+                    @click.stop="openEditModal(emp)"
                   >
                     <UIcon name="i-heroicons-pencil-square" class="w-4 h-4" />
                   </button>
@@ -318,7 +328,7 @@
                   <button
                     class="p-1.5 rounded-lg bg-gray-100 hover:bg-amber-100 text-gray-600 hover:text-amber-700 transition-colors"
                     title="Reset Login Password"
-                    @click="openPasswordModal(emp)"
+                    @click.stop="openPasswordModal(emp)"
                   >
                     <UIcon name="i-heroicons-key" class="w-4 h-4" />
                   </button>
@@ -327,16 +337,26 @@
                   <button
                     class="p-1.5 rounded-lg bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-700 transition-colors"
                     title="Edit Geofencing & Work Schedule"
-                    @click="openScheduleModal(emp)"
+                    @click.stop="openScheduleModal(emp)"
                   >
                     <UIcon name="i-heroicons-clock" class="w-4 h-4" />
                   </button>
+
+                  <!-- Request & Approval History -->
+                  <NuxtLink
+                    :to="`/admin/requests?employee=${emp.id}`"
+                    class="p-1.5 rounded-lg bg-gray-100 hover:bg-cyan-100 text-gray-600 hover:text-cyan-700 transition-colors inline-flex items-center justify-center"
+                    title="View Regularization & Leave History"
+                    @click.stop
+                  >
+                    <UIcon name="i-heroicons-clipboard-document-list" class="w-4 h-4" />
+                  </NuxtLink>
 
                   <!-- Toggle Active Status -->
                   <button
                     class="p-1.5 rounded-lg bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-700 transition-colors"
                     :title="emp.is_active ? 'Deactivate Account' : 'Reactivate Account'"
-                    @click="toggleEmployeeStatus(emp)"
+                    @click.stop="toggleEmployeeStatus(emp)"
                   >
                     <UIcon :name="emp.is_active ? 'i-heroicons-no-symbol' : 'i-heroicons-check-circle'" class="w-4 h-4" />
                   </button>
@@ -371,6 +391,1109 @@
           >
             Next
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL 0: EMPLOYEE FULL DETAILS & PROFILE INSPECTOR               -->
+    <!-- ================================================================= -->
+    <div
+      v-if="isDetailModalOpen && selectedDetailEmp"
+      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6"
+    >
+      <div
+        class="fixed inset-0 bg-gray-900/60 backdrop-blur-md transition-opacity"
+        @click="isDetailModalOpen = false"
+      />
+
+      <div
+        class="relative w-full max-w-5xl max-h-[92vh] bg-white rounded-3xl shadow-2xl border border-gray-200 z-10 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+      >
+        <!-- Modal Top Header Banner -->
+        <div class="px-6 py-5 bg-gradient-to-r from-gray-50 via-white to-emerald-50/40 border-b border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0">
+          <div class="flex items-center gap-4 min-w-0">
+            <!-- Large Avatar -->
+            <div class="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center font-bold text-white text-base shadow-lg shrink-0 overflow-hidden border-2 border-white ring-2 ring-emerald-100">
+              <img
+                v-if="selectedDetailEmp.avatar_url"
+                :src="selectedDetailEmp.avatar_url"
+                :alt="selectedDetailEmp.full_name || 'Staff'"
+                class="w-full h-full object-cover"
+              />
+              <span v-else>{{ getInitials(selectedDetailEmp.full_name || selectedDetailEmp.email) }}</span>
+              <span
+                class="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white"
+                :class="selectedDetailEmp.is_active ? 'bg-emerald-500' : 'bg-red-500'"
+                :title="selectedDetailEmp.is_active ? 'Active Employee' : 'Inactive Employee'"
+              />
+            </div>
+
+            <!-- Name, Code & Position -->
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-base sm:text-lg font-black text-gray-900 truncate">
+                  {{ selectedDetailEmp.full_name || 'Unnamed Employee' }}
+                </h3>
+                <span
+                  v-if="selectedDetailEmp.employee_code"
+                  class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 border border-gray-300"
+                >
+                  {{ selectedDetailEmp.employee_code }}
+                </span>
+                <span
+                  class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider"
+                  :class="selectedDetailEmp.is_active ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-red-100 text-red-800 border border-red-200'"
+                >
+                  {{ selectedDetailEmp.is_active ? 'Active' : 'Inactive' }}
+                </span>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-gray-500">
+                <span class="font-medium text-gray-700 flex items-center gap-1">
+                  <UIcon name="i-heroicons-briefcase" class="w-3.5 h-3.5 text-gray-400" />
+                  {{ adminStore.getPositionName(selectedDetailEmp.position) }}
+                </span>
+                <span class="text-gray-300">•</span>
+                <span class="font-medium text-gray-700 flex items-center gap-1">
+                  <UIcon name="i-heroicons-building-office" class="w-3.5 h-3.5 text-gray-400" />
+                  {{ adminStore.getDepartmentName(selectedDetailEmp.department) }}
+                </span>
+                <span class="text-gray-300">•</span>
+                <span class="font-mono text-gray-500 flex items-center gap-1">
+                  <UIcon name="i-heroicons-envelope" class="w-3.5 h-3.5 text-gray-400" />
+                  {{ selectedDetailEmp.email }}
+                </span>
+                <span v-if="selectedDetailEmp.phone" class="text-gray-300">•</span>
+                <span v-if="selectedDetailEmp.phone" class="font-mono text-gray-500 flex items-center gap-1">
+                  <UIcon name="i-heroicons-phone" class="w-3.5 h-3.5 text-gray-400" />
+                  {{ selectedDetailEmp.phone }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Header Quick Action Shortcuts -->
+          <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            <!-- Edit Profile -->
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 text-xs font-bold border border-gray-200 hover:border-emerald-200 transition-colors"
+              title="Edit Employee Profile"
+              @click="openEditFromDetail"
+            >
+              <UIcon name="i-heroicons-pencil-square" class="w-4 h-4 text-emerald-600" />
+              <span class="hidden sm:inline">Edit</span>
+            </button>
+
+            <!-- Schedule & GPS -->
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-blue-50 text-gray-700 hover:text-blue-700 text-xs font-bold border border-gray-200 hover:border-blue-200 transition-colors"
+              title="Edit Work Schedule & Geofence"
+              @click="openScheduleFromDetail"
+            >
+              <UIcon name="i-heroicons-clock" class="w-4 h-4 text-blue-600" />
+              <span class="hidden sm:inline">Schedule</span>
+            </button>
+
+            <!-- Reset Password -->
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-amber-50 text-gray-700 hover:text-amber-700 text-xs font-bold border border-gray-200 hover:border-amber-200 transition-colors"
+              title="Reset Password"
+              @click="openPasswordFromDetail"
+            >
+              <UIcon name="i-heroicons-key" class="w-4 h-4 text-amber-600" />
+              <span class="hidden sm:inline">Password</span>
+            </button>
+
+            <!-- Close Modal -->
+            <button
+              type="button"
+              class="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              @click="isDetailModalOpen = false"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs Bar -->
+        <div class="px-6 border-b border-gray-200 bg-gray-50/60 flex items-center gap-2 overflow-x-auto shrink-0 scrollbar-none">
+          <button
+            type="button"
+            class="py-3 px-3.5 border-b-2 text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap"
+            :class="detailActiveTab === 'overview' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-900'"
+            @click="detailActiveTab = 'overview'"
+          >
+            <UIcon name="i-heroicons-user" class="w-4 h-4" />
+            <span>Profile & Identity</span>
+          </button>
+
+          <button
+            type="button"
+            class="py-3 px-3.5 border-b-2 text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap"
+            :class="detailActiveTab === 'job' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-900'"
+            @click="detailActiveTab = 'job'"
+          >
+            <UIcon name="i-heroicons-briefcase" class="w-4 h-4" />
+            <span>Job & Hierarchy</span>
+          </button>
+
+          <button
+            type="button"
+            class="py-3 px-3.5 border-b-2 text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap"
+            :class="detailActiveTab === 'schedule' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-900'"
+            @click="detailActiveTab = 'schedule'"
+          >
+            <UIcon name="i-heroicons-clock" class="w-4 h-4" />
+            <span>Schedule & Geofence</span>
+          </button>
+
+          <button
+            type="button"
+            class="py-3 px-3.5 border-b-2 text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap"
+            :class="detailActiveTab === 'family' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-900'"
+            @click="detailActiveTab = 'family'"
+          >
+            <UIcon name="i-heroicons-user-group" class="w-4 h-4" />
+            <span>Family & Nominees</span>
+          </button>
+
+          <button
+            type="button"
+            class="py-3 px-3.5 border-b-2 text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap"
+            :class="detailActiveTab === 'documents' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-900'"
+            @click="detailActiveTab = 'documents'"
+          >
+            <UIcon name="i-heroicons-document-text" class="w-4 h-4" />
+            <span>Compliance & Banking</span>
+          </button>
+
+          <button
+            type="button"
+            class="py-3 px-3.5 border-b-2 text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap"
+            :class="detailActiveTab === 'security' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-900'"
+            @click="detailActiveTab = 'security'"
+          >
+            <UIcon name="i-heroicons-shield-check" class="w-4 h-4" />
+            <span>Access & Biometrics</span>
+          </button>
+        </div>
+
+        <!-- Copy Feedback Banner -->
+        <div v-if="copySuccessMsg" class="bg-emerald-600 text-white text-[11px] font-bold py-1 px-4 text-center shrink-0">
+          {{ copySuccessMsg }}
+        </div>
+
+        <!-- Modal Body Scrollable Content -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
+          <!-- TAB 1: PROFILE & IDENTITY -->
+          <div v-if="detailActiveTab === 'overview'" class="space-y-6">
+            <!-- Personal Info Card -->
+            <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60">
+                    <UIcon name="i-heroicons-identification" class="w-4 h-4" />
+                  </div>
+                  <h4 class="text-sm font-bold text-gray-900">Personal Information</h4>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Full Name</span>
+                  <span class="font-bold text-gray-900">{{ selectedDetailEmp.full_name || '-' }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Employee Code</span>
+                  <span class="font-mono font-bold text-emerald-700">{{ selectedDetailEmp.employee_code || '-' }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Gender</span>
+                  <span class="font-semibold text-gray-800 capitalize">{{ selectedDetailEmp.gender || '-' }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Date of Birth & Age</span>
+                  <span class="font-semibold text-gray-900">
+                    {{ formatDateOnly(selectedDetailEmp.date_of_birth || detailProfileData?.date_of_birth) }}
+                    <span v-if="calculateAge(selectedDetailEmp.date_of_birth || detailProfileData?.date_of_birth)" class="text-emerald-700 font-bold ml-1">
+                      ({{ calculateAge(selectedDetailEmp.date_of_birth || detailProfileData?.date_of_birth) }})
+                    </span>
+                  </span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Marital Status</span>
+                  <span class="font-semibold text-gray-800 capitalize">{{ selectedDetailEmp.marital_status || detailProfileData?.marital_status || '-' }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Contact Phone</span>
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono font-semibold text-gray-900">{{ selectedDetailEmp.phone || '-' }}</span>
+                    <button
+                      v-if="selectedDetailEmp.phone"
+                      type="button"
+                      class="text-gray-400 hover:text-emerald-600"
+                      title="Copy phone"
+                      @click="copyToClipboard(selectedDetailEmp.phone, 'phone')"
+                    >
+                      <UIcon name="i-heroicons-clipboard-document" class="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1 sm:col-span-2 lg:col-span-3">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Email Address</span>
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono text-gray-900">{{ selectedDetailEmp.email }}</span>
+                    <button
+                      type="button"
+                      class="text-gray-400 hover:text-emerald-600"
+                      title="Copy email"
+                      @click="copyToClipboard(selectedDetailEmp.email, 'email')"
+                    >
+                      <UIcon name="i-heroicons-clipboard-document" class="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Addresses Card -->
+            <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200/60">
+                    <UIcon name="i-heroicons-map-pin" class="w-4 h-4" />
+                  </div>
+                  <h4 class="text-sm font-bold text-gray-900">Residential Addresses</h4>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <!-- Current Address -->
+                <div class="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-1.5">
+                  <div class="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    <UIcon name="i-heroicons-home" class="w-3.5 h-3.5 text-blue-500" />
+                    <span>Current Address</span>
+                  </div>
+                  <p class="text-xs text-gray-800 leading-relaxed font-medium">
+                    {{ selectedDetailEmp.current_address || detailProfileData?.current_address || 'No current address recorded' }}
+                  </p>
+                </div>
+
+                <!-- Permanent Address -->
+                <div class="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-1.5">
+                  <div class="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    <UIcon name="i-heroicons-building-office-2" class="w-3.5 h-3.5 text-gray-500" />
+                    <span>Permanent Address</span>
+                  </div>
+                  <p class="text-xs text-gray-800 leading-relaxed font-medium">
+                    {{ selectedDetailEmp.permanent_address || detailProfileData?.permanent_address || 'No permanent address recorded' }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Emergency Contacts Card -->
+            <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-200/60">
+                    <UIcon name="i-heroicons-phone-arrow-up-right" class="w-4 h-4" />
+                  </div>
+                  <h4 class="text-sm font-bold text-gray-900">Emergency Contacts</h4>
+                </div>
+              </div>
+
+              <div v-if="normalizeEmergencyContacts(selectedDetailEmp.emergency_contacts).length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  v-for="(ec, idx) in normalizeEmergencyContacts(selectedDetailEmp.emergency_contacts)"
+                  :key="idx"
+                  class="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-1 text-xs"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-gray-900">{{ ec.name || 'Emergency Contact' }}</span>
+                    <span v-if="ec.relation" class="text-[10px] px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 font-semibold">
+                      {{ ec.relation }}
+                    </span>
+                  </div>
+                  <div v-if="ec.phone" class="font-mono text-gray-600 text-xs flex items-center gap-1.5 mt-1">
+                    <UIcon name="i-heroicons-phone" class="w-3.5 h-3.5 text-gray-400" />
+                    {{ ec.phone }}
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-xs text-gray-400 italic py-2">
+                No emergency contacts registered on profile.
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: JOB & HIERARCHY -->
+          <div v-else-if="detailActiveTab === 'job'" class="space-y-6">
+            <!-- Organization Placement Card -->
+            <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-200/60">
+                    <UIcon name="i-heroicons-building-office" class="w-4 h-4" />
+                  </div>
+                  <h4 class="text-sm font-bold text-gray-900">Employment & Organizational Placement</h4>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Department</span>
+                  <span class="font-bold text-gray-900">{{ adminStore.getDepartmentName(selectedDetailEmp.department) }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Position / Designation</span>
+                  <span class="font-bold text-gray-900">{{ adminStore.getPositionName(selectedDetailEmp.position) }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Employment Type</span>
+                  <span class="font-semibold text-gray-800 capitalize">{{ (selectedDetailEmp.employment_type || 'full_time').replace('_', ' ') }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Date of Joining</span>
+                  <span class="font-semibold text-gray-900">{{ formatDateOnly(selectedDetailEmp.date_of_joining) }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Company Tenure</span>
+                  <span class="font-bold text-purple-700">{{ calculateTenure(selectedDetailEmp.date_of_joining) }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Employment Status</span>
+                  <span
+                    class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider inline-block"
+                    :class="selectedDetailEmp.is_active ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-red-100 text-red-800 border border-red-200'"
+                  >
+                    {{ selectedDetailEmp.is_active ? 'Active' : 'Inactive' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Approval Hierarchy Chain Card -->
+            <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60">
+                    <UIcon name="i-heroicons-user-group" class="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-gray-900">Department Approval Hierarchy Chain</h4>
+                    <p class="text-[11px] text-gray-500">Resolves leaves and profile requests through department management chain</p>
+                  </div>
+                </div>
+
+                <span class="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  Configured: Level {{ selectedDetailEmp.approval_levels || 1 }}
+                </span>
+              </div>
+
+              <div v-if="getHierarchyApproversFor(selectedDetailEmp.department, selectedDetailEmp.id).length > 0" class="space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div
+                    v-for="(appr, idx) in getHierarchyApproversFor(selectedDetailEmp.department, selectedDetailEmp.id)"
+                    :key="appr.managerId"
+                    class="p-4 rounded-xl border transition-all"
+                    :class="idx + 1 <= (selectedDetailEmp.approval_levels || 1) ? 'bg-emerald-50/50 border-emerald-200 shadow-xs' : 'bg-gray-50 border-gray-200 opacity-60'"
+                  >
+                    <div class="flex items-center justify-between mb-2">
+                      <span
+                        class="text-[10px] font-bold px-2 py-0.5 rounded-md font-mono"
+                        :class="idx + 1 <= (selectedDetailEmp.approval_levels || 1) ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'"
+                      >
+                        Level {{ appr.level }}
+                      </span>
+
+                      <span
+                        v-if="idx + 1 === (selectedDetailEmp.approval_levels || 1)"
+                        class="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200"
+                      >
+                        Final Approver
+                      </span>
+                    </div>
+
+                    <div class="font-bold text-gray-900 text-xs">{{ appr.managerName }}</div>
+                    <div class="text-[11px] text-gray-500 mt-0.5">{{ appr.departmentName }}</div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
+                <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-amber-600 shrink-0" />
+                <span>No manager is assigned to this employee's department or parent departments.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: SCHEDULE & GEOFENCE -->
+          <div v-else-if="detailActiveTab === 'schedule'" class="space-y-6">
+            <template v-if="selectedDetailEmp.work_schedule">
+              <!-- Shift Timing & Work Hours -->
+              <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60">
+                      <UIcon name="i-heroicons-clock" class="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 class="text-sm font-bold text-gray-900">Shift Timings & Work Hours</h4>
+                      <p class="text-[11px] text-gray-500">Scheduled attendance rules and required hours</p>
+                    </div>
+                  </div>
+
+                  <span
+                    class="text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider"
+                    :class="selectedDetailEmp.work_schedule.schedule_type === 'flexible' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'"
+                  >
+                    {{ selectedDetailEmp.work_schedule.schedule_type === 'flexible' ? 'Flexible Hours' : 'Fixed Timing' }}
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                  <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Start Time</span>
+                    <span class="font-mono font-bold text-gray-900 text-sm">{{ formatTime(selectedDetailEmp.work_schedule.start_time) }}</span>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">End Time</span>
+                    <span class="font-mono font-bold text-gray-900 text-sm">{{ formatTime(selectedDetailEmp.work_schedule.end_time) }}</span>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Min Work Hours</span>
+                    <span class="font-mono font-bold text-emerald-700 text-sm">
+                      {{ selectedDetailEmp.work_schedule.min_work_hours ? `${selectedDetailEmp.work_schedule.min_work_hours} hrs/day` : 'Default' }}
+                    </span>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Punch-in Grace</span>
+                    <span class="font-mono font-bold text-gray-900 text-sm">{{ selectedDetailEmp.work_schedule.punch_in_grace || 12 }} mins</span>
+                  </div>
+                </div>
+
+                <!-- Assigned Weekdays -->
+                <div class="space-y-2 pt-2 border-t border-gray-100">
+                  <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Assigned Weekdays</span>
+                  <div class="flex flex-wrap gap-2">
+                    <span
+                      v-for="day in ALL_WEEKDAYS"
+                      :key="day"
+                      class="px-2.5 py-1 rounded-lg text-xs font-bold transition-colors"
+                      :class="isDayScheduled(day) ? 'bg-emerald-500 text-white shadow-xs' : 'bg-gray-100 text-gray-400'"
+                    >
+                      {{ day.slice(0, 3) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Geofencing & Work Location Boundaries -->
+              <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200/60">
+                      <UIcon name="i-heroicons-map-pin" class="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 class="text-sm font-bold text-gray-900">Geofencing & Work Location Boundaries</h4>
+                      <p class="text-[11px] text-gray-500">Punch-in location verification and remote permissions</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <!-- WFM Status -->
+                  <div class="p-3.5 rounded-xl border flex items-center justify-between" :class="selectedDetailEmp.work_schedule.wfm_allowed ? 'bg-blue-50/60 border-blue-200' : 'bg-gray-50 border-gray-200'">
+                    <div>
+                      <span class="text-[10px] text-gray-400 block uppercase font-bold">WFM Policy</span>
+                      <span class="font-bold text-gray-900">{{ selectedDetailEmp.work_schedule.wfm_allowed ? 'Work From Home Allowed' : 'Office Only' }}</span>
+                    </div>
+                    <UIcon :name="selectedDetailEmp.work_schedule.wfm_allowed ? 'i-heroicons-home' : 'i-heroicons-building-office'" class="w-5 h-5 text-blue-600" />
+                  </div>
+
+                  <!-- Geofence Status -->
+                  <div class="p-3.5 rounded-xl border flex items-center justify-between" :class="selectedDetailEmp.geofencing ? 'bg-emerald-50/60 border-emerald-200' : 'bg-amber-50/60 border-amber-200'">
+                    <div>
+                      <span class="text-[10px] text-gray-400 block uppercase font-bold">Geofence Lock</span>
+                      <span class="font-bold text-gray-900">{{ selectedDetailEmp.geofencing ? 'GPS Geofencing Active' : 'No Geofence Enforced' }}</span>
+                    </div>
+                    <UIcon name="i-heroicons-map-pin" class="w-5 h-5" :class="selectedDetailEmp.geofencing ? 'text-emerald-600' : 'text-amber-600'" />
+                  </div>
+
+                  <!-- Office Location -->
+                  <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Office GPS Coordinates</span>
+                    <span class="font-mono text-gray-900 font-semibold">{{ selectedDetailEmp.work_schedule.office_location || 'Not Configured' }}</span>
+                    <span v-if="selectedDetailEmp.work_schedule.office_radius" class="text-[11px] text-gray-500 block">Radius: {{ selectedDetailEmp.work_schedule.office_radius }} meters</span>
+                  </div>
+
+                  <!-- Home Location -->
+                  <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Home GPS Coordinates</span>
+                    <span class="font-mono text-gray-900 font-semibold">{{ selectedDetailEmp.work_schedule.home_location || 'Not Configured' }}</span>
+                    <span v-if="selectedDetailEmp.work_schedule.home_radius" class="text-[11px] text-gray-500 block">Radius: {{ selectedDetailEmp.work_schedule.home_radius }} meters</span>
+                  </div>
+                </div>
+              </div>
+            </template>
+            <div v-else class="p-8 text-center bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+              <UIcon name="i-heroicons-clock" class="w-10 h-10 text-gray-400 mx-auto" />
+              <h4 class="text-sm font-bold text-gray-800">No Work Schedule Assigned</h4>
+              <p class="text-xs text-gray-500 max-w-sm mx-auto">This employee currently has no schedule or GPS geofence configured.</p>
+              <button
+                type="button"
+                class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm"
+                @click="openScheduleFromDetail"
+              >
+                Configure Work Schedule
+              </button>
+            </div>
+          </div>
+
+          <!-- TAB 4: FAMILY & NOMINEES -->
+          <div v-else-if="detailActiveTab === 'family'" class="space-y-6">
+            <div v-if="isLoadingDetailProfile" class="py-12 text-center text-gray-500 space-y-2 bg-gray-50 rounded-2xl">
+              <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-emerald-600 mx-auto" />
+              <p class="text-xs">Loading family and nominee records...</p>
+            </div>
+
+            <template v-else>
+              <!-- Immediate Family -->
+              <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-200/60">
+                      <UIcon name="i-heroicons-user-group" class="w-4 h-4" />
+                    </div>
+                    <h4 class="text-sm font-bold text-gray-900">Parents & Spouse</h4>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                  <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Father's Name</span>
+                    <span class="font-bold text-gray-900">{{ detailProfileData?.father_name || '-' }}</span>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Mother's Name</span>
+                    <span class="font-bold text-gray-900">{{ detailProfileData?.mother_name || '-' }}</span>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Spouse's Name</span>
+                    <span class="font-bold text-gray-900">{{ detailProfileData?.spouse_name || '-' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Children Records -->
+              <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200/60">
+                      <UIcon name="i-heroicons-face-smile" class="w-4 h-4" />
+                    </div>
+                    <h4 class="text-sm font-bold text-gray-900">Children Records</h4>
+                  </div>
+
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                    {{ (detailProfileData?.children || []).length }} Child(ren)
+                  </span>
+                </div>
+
+                <div v-if="Array.isArray(detailProfileData?.children) && detailProfileData.children.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div
+                    v-for="(child, idx) in detailProfileData.children"
+                    :key="idx"
+                    class="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-2 text-xs"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100/70 text-blue-800 font-mono">
+                        Child {{ idx + 1 }}
+                      </span>
+                      <span
+                        v-if="child.gender"
+                        class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase"
+                        :class="String(child.gender).toLowerCase() === 'female' ? 'bg-pink-50 text-pink-700 border border-pink-200' : 'bg-blue-50 text-blue-700 border border-blue-200'"
+                      >
+                        {{ child.gender }}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span class="text-[10px] text-gray-400 block uppercase font-bold">Child Name</span>
+                      <span class="font-bold text-gray-900">{{ child.name || '-' }}</span>
+                    </div>
+
+                    <div v-if="child.dob">
+                      <span class="text-[10px] text-gray-400 block uppercase font-bold">Date of Birth</span>
+                      <span class="font-mono text-gray-700">{{ child.dob }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="text-xs text-gray-400 italic py-2">
+                  No children records recorded on profile.
+                </div>
+              </div>
+
+              <!-- Nominees Records -->
+              <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-200/60">
+                      <UIcon name="i-heroicons-shield-check" class="w-4 h-4" />
+                    </div>
+                    <h4 class="text-sm font-bold text-gray-900">Nominees Records</h4>
+                  </div>
+
+                  <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                    Total Share: {{ calculateTotalNomineeShare(detailProfileData?.nominees) }}%
+                  </span>
+                </div>
+
+                <div v-if="Array.isArray(detailProfileData?.nominees) && detailProfileData.nominees.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div
+                    v-for="(nominee, idx) in detailProfileData.nominees"
+                    :key="idx"
+                    class="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-2 text-xs"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-100/70 text-purple-800 font-mono">
+                        Nominee {{ idx + 1 }}
+                      </span>
+                      <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {{ nominee.share_percentage || 0 }}% Share
+                      </span>
+                    </div>
+
+                    <div>
+                      <span class="text-[10px] text-gray-400 block uppercase font-bold">Nominee Name</span>
+                      <span class="font-bold text-gray-900">{{ nominee.name || '-' }}</span>
+                    </div>
+
+                    <div v-if="nominee.relation">
+                      <span class="text-[10px] text-gray-400 block uppercase font-bold">Relationship</span>
+                      <span class="font-semibold text-gray-700 flex items-center gap-1 mt-0.5">
+                        <UIcon name="i-heroicons-heart" class="w-3.5 h-3.5 text-purple-500" />
+                        {{ nominee.relation }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="text-xs text-gray-400 italic py-2">
+                  No nominees recorded on profile.
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- TAB 5: COMPLIANCE & BANKING -->
+          <div v-else-if="detailActiveTab === 'documents'" class="space-y-6">
+            <div v-if="isLoadingDetailProfile" class="py-12 text-center text-gray-500 space-y-2 bg-gray-50 rounded-2xl">
+              <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-emerald-600 mx-auto" />
+              <p class="text-xs">Loading banking and compliance document records...</p>
+            </div>
+
+            <template v-else>
+              <!-- Bank Account Details -->
+              <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60">
+                      <UIcon name="i-heroicons-credit-card" class="w-4 h-4" />
+                    </div>
+                    <h4 class="text-sm font-bold text-gray-900">Bank Account & Salary Disbursement</h4>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                  <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Account Holder</span>
+                    <span class="font-bold text-gray-900">{{ detailProfileData?.bank_details?.account_holder || '-' }}</span>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Bank Name</span>
+                    <span class="font-bold text-gray-900">{{ detailProfileData?.bank_details?.bank_name || '-' }}</span>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Account Number</span>
+                    <div class="flex items-center justify-between">
+                      <span class="font-mono font-bold text-emerald-800">{{ detailProfileData?.bank_details?.account_number || '-' }}</span>
+                      <button
+                        v-if="detailProfileData?.bank_details?.account_number"
+                        type="button"
+                        class="text-gray-400 hover:text-emerald-600"
+                        title="Copy account number"
+                        @click="copyToClipboard(detailProfileData.bank_details.account_number, 'account number')"
+                      >
+                        <UIcon name="i-heroicons-clipboard-document" class="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">IFSC Code</span>
+                    <div class="flex items-center justify-between">
+                      <span class="font-mono font-bold text-emerald-800">{{ detailProfileData?.bank_details?.ifsc_code || '-' }}</span>
+                      <button
+                        v-if="detailProfileData?.bank_details?.ifsc_code"
+                        type="button"
+                        class="text-gray-400 hover:text-emerald-600"
+                        title="Copy IFSC code"
+                        @click="copyToClipboard(detailProfileData.bank_details.ifsc_code, 'IFSC')"
+                      >
+                        <UIcon name="i-heroicons-clipboard-document" class="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cheque / Passbook Attachment Previews -->
+                <div v-if="detailDocUrls.cancelled_cheque || detailDocUrls.passbook" class="pt-3 border-t border-gray-100 flex flex-wrap gap-3">
+                  <a
+                    v-if="detailDocUrls.cancelled_cheque"
+                    :href="detailDocUrls.cancelled_cheque"
+                    target="_blank"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-200"
+                  >
+                    <UIcon name="i-heroicons-document-arrow-down" class="w-4 h-4" />
+                    <span>View Cancelled Cheque</span>
+                  </a>
+
+                  <a
+                    v-if="detailDocUrls.passbook"
+                    :href="detailDocUrls.passbook"
+                    target="_blank"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200"
+                  >
+                    <UIcon name="i-heroicons-document-arrow-down" class="w-4 h-4" />
+                    <span>View Bank Passbook</span>
+                  </a>
+                </div>
+              </div>
+
+              <!-- Government ID Documents -->
+              <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200/60">
+                      <UIcon name="i-heroicons-identification" class="w-4 h-4" />
+                    </div>
+                    <h4 class="text-sm font-bold text-gray-900">Government Identity Records</h4>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  <!-- Aadhaar Card -->
+                  <div class="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
+                    <div class="flex items-center justify-between">
+                      <span class="font-bold text-gray-900">Aadhaar Card</span>
+                      <UIcon name="i-heroicons-finger-print" class="w-4 h-4 text-gray-400" />
+                    </div>
+
+                    <div class="p-2.5 rounded-lg bg-white border border-gray-200 flex items-center justify-between">
+                      <span class="font-mono font-bold text-gray-800">{{ maskAadhaar(detailProfileData?.aadhaar_number) }}</span>
+                      <button
+                        v-if="detailProfileData?.aadhaar_number"
+                        type="button"
+                        class="text-gray-400 hover:text-emerald-600"
+                        title="Copy Aadhaar"
+                        @click="copyToClipboard(detailProfileData.aadhaar_number, 'Aadhaar')"
+                      >
+                        <UIcon name="i-heroicons-clipboard-document" class="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 pt-1">
+                      <a
+                        v-if="detailDocUrls.aadhaar_front"
+                        :href="detailDocUrls.aadhaar_front"
+                        target="_blank"
+                        class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200"
+                      >
+                        <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3" />
+                        <span>Front Side</span>
+                      </a>
+                      <a
+                        v-if="detailDocUrls.aadhaar_back"
+                        :href="detailDocUrls.aadhaar_back"
+                        target="_blank"
+                        class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200"
+                      >
+                        <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3" />
+                        <span>Back Side</span>
+                      </a>
+                      <span v-if="!detailDocUrls.aadhaar_front && !detailDocUrls.aadhaar_back" class="text-[11px] text-gray-400 italic">
+                        No document attached
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- PAN Card -->
+                  <div class="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
+                    <div class="flex items-center justify-between">
+                      <span class="font-bold text-gray-900">PAN Card</span>
+                      <UIcon name="i-heroicons-document-text" class="w-4 h-4 text-gray-400" />
+                    </div>
+
+                    <div class="p-2.5 rounded-lg bg-white border border-gray-200 flex items-center justify-between">
+                      <span class="font-mono font-bold uppercase text-gray-800">{{ detailProfileData?.pan_number || '-' }}</span>
+                      <button
+                        v-if="detailProfileData?.pan_number"
+                        type="button"
+                        class="text-gray-400 hover:text-emerald-600"
+                        title="Copy PAN"
+                        @click="copyToClipboard(detailProfileData.pan_number, 'PAN')"
+                      >
+                        <UIcon name="i-heroicons-clipboard-document" class="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div class="pt-1">
+                      <a
+                        v-if="detailDocUrls.pan"
+                        :href="detailDocUrls.pan"
+                        target="_blank"
+                        class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200"
+                      >
+                        <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3" />
+                        <span>View PAN Doc</span>
+                      </a>
+                      <span v-else class="text-[11px] text-gray-400 italic">No document attached</span>
+                    </div>
+                  </div>
+
+                  <!-- Passport -->
+                  <div class="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
+                    <div class="flex items-center justify-between">
+                      <span class="font-bold text-gray-900">Passport</span>
+                      <UIcon name="i-heroicons-globe-alt" class="w-4 h-4 text-gray-400" />
+                    </div>
+
+                    <div class="p-2.5 rounded-lg bg-white border border-gray-200 flex items-center justify-between">
+                      <span class="font-mono font-bold uppercase text-gray-800">{{ detailProfileData?.passport_number || '-' }}</span>
+                      <button
+                        v-if="detailProfileData?.passport_number"
+                        type="button"
+                        class="text-gray-400 hover:text-emerald-600"
+                        title="Copy Passport"
+                        @click="copyToClipboard(detailProfileData.passport_number, 'passport')"
+                      >
+                        <UIcon name="i-heroicons-clipboard-document" class="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div class="pt-1">
+                      <a
+                        v-if="detailDocUrls.passport"
+                        :href="detailDocUrls.passport"
+                        target="_blank"
+                        class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200"
+                      >
+                        <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3" />
+                        <span>View Passport Doc</span>
+                      </a>
+                      <span v-else class="text-[11px] text-gray-400 italic">No document attached</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- TAB 6: ACCESS & BIOMETRICS -->
+          <div v-else-if="detailActiveTab === 'security'" class="space-y-6">
+            <!-- Access Permissions Card -->
+            <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200/60">
+                    <UIcon name="i-heroicons-lock-closed" class="w-4 h-4" />
+                  </div>
+                  <h4 class="text-sm font-bold text-gray-900">Application Access Permissions</h4>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div class="p-3.5 rounded-xl border flex items-center justify-between" :class="selectedDetailEmp.app_access ? 'bg-emerald-50/50 border-emerald-200' : 'bg-gray-50 border-gray-200'">
+                  <div>
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Mobile App Access</span>
+                    <span class="font-bold text-gray-900">{{ selectedDetailEmp.app_access ? 'Active (Allowed)' : 'Blocked' }}</span>
+                  </div>
+                  <UIcon name="i-heroicons-device-phone-mobile" class="w-5 h-5" :class="selectedDetailEmp.app_access ? 'text-emerald-600' : 'text-gray-400'" />
+                </div>
+
+                <div class="p-3.5 rounded-xl border flex items-center justify-between" :class="selectedDetailEmp.web_access ? 'bg-blue-50/50 border-blue-200' : 'bg-gray-50 border-gray-200'">
+                  <div>
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Web Dashboard</span>
+                    <span class="font-bold text-gray-900">{{ selectedDetailEmp.web_access ? 'Active (Allowed)' : 'Blocked' }}</span>
+                  </div>
+                  <UIcon name="i-heroicons-computer-desktop" class="w-5 h-5" :class="selectedDetailEmp.web_access ? 'text-blue-600' : 'text-gray-400'" />
+                </div>
+
+                <div class="p-3.5 rounded-xl border flex items-center justify-between" :class="selectedDetailEmp.geofencing ? 'bg-emerald-50/50 border-emerald-200' : 'bg-amber-50/50 border-amber-200'">
+                  <div>
+                    <span class="text-[10px] text-gray-400 block uppercase font-bold">Geofencing Enforced</span>
+                    <span class="font-bold text-gray-900">{{ selectedDetailEmp.geofencing ? 'Yes (Enforced)' : 'No (Anywhere)' }}</span>
+                  </div>
+                  <UIcon name="i-heroicons-map-pin" class="w-5 h-5" :class="selectedDetailEmp.geofencing ? 'text-emerald-600' : 'text-amber-600'" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Device Registration Card -->
+            <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-200/60">
+                    <UIcon name="i-heroicons-device-phone-mobile" class="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-gray-900">Bound Mobile Hardware Device</h4>
+                    <p class="text-[11px] text-gray-500">Device linked for attendance punches and security</p>
+                  </div>
+                </div>
+
+                <span
+                  class="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase"
+                  :class="selectedDetailEmp.device_id || selectedDetailEmp.device_info ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-gray-100 text-gray-600 border border-gray-200'"
+                >
+                  {{ selectedDetailEmp.device_id || selectedDetailEmp.device_info ? 'Device Paired' : 'Not Paired' }}
+                </span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Platform / OS</span>
+                  <span class="font-bold text-gray-900">{{ selectedDetailEmp.device_info?.platform || selectedDetailEmp.device_info?.systemName || '-' }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Device Model</span>
+                  <span class="font-bold text-gray-900">{{ selectedDetailEmp.device_info?.model || selectedDetailEmp.device_info?.name || '-' }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Manufacturer</span>
+                  <span class="font-bold text-gray-900">{{ selectedDetailEmp.device_info?.manufacturer || '-' }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1 sm:col-span-2 lg:col-span-3">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Device Identifier</span>
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono text-gray-800 text-[11px] truncate">{{ selectedDetailEmp.device_id || selectedDetailEmp.device_info?.identifier || selectedDetailEmp.device_info?.deviceId || '-' }}</span>
+                    <button
+                      v-if="selectedDetailEmp.device_id || selectedDetailEmp.device_info?.identifier"
+                      type="button"
+                      class="text-gray-400 hover:text-emerald-600 shrink-0 ml-2"
+                      title="Copy Device ID"
+                      @click="copyToClipboard(selectedDetailEmp.device_id || selectedDetailEmp.device_info?.identifier, 'Device ID')"
+                    >
+                      <UIcon name="i-heroicons-clipboard-document" class="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Face Biometric Recognition Card -->
+            <div class="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs space-y-4">
+              <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-200/60">
+                    <UIcon name="i-heroicons-face-smile" class="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-gray-900">Face Biometric Authentication</h4>
+                    <p class="text-[11px] text-gray-500">Facial recognition matching configuration</p>
+                  </div>
+                </div>
+
+                <span
+                  class="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase"
+                  :class="selectedDetailEmp.face_enrolled_at ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-amber-100 text-amber-800 border border-amber-200'"
+                >
+                  {{ selectedDetailEmp.face_enrolled_at ? 'Face Enrolled' : 'Pending Enrollment' }}
+                </span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Face Required</span>
+                  <span class="font-bold text-gray-900">{{ selectedDetailEmp.face_recognition ? 'Yes (Enforced)' : 'Optional' }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Enrolled At</span>
+                  <span class="font-semibold text-gray-900">{{ formatDate(selectedDetailEmp.face_enrolled_at) }}</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                  <span class="text-[10px] text-gray-400 block uppercase font-bold">Match Threshold</span>
+                  <span class="font-mono font-bold text-purple-700">{{ selectedDetailEmp.face_match_threshold ?? 0.75 }}</span>
+                </div>
+              </div>
+
+              <!-- Enrolled Face Photo Preview -->
+              <div v-if="detailFacePhotoUrl" class="p-4 rounded-xl bg-purple-50/50 border border-purple-200 flex flex-col sm:flex-row items-center gap-4">
+                <div class="w-24 h-24 rounded-2xl overflow-hidden bg-gray-100 border-2 border-white shadow-md shrink-0">
+                  <img :src="detailFacePhotoUrl" alt="Enrolled Face" class="w-full h-full object-cover" />
+                </div>
+                <div class="space-y-1 text-center sm:text-left">
+                  <div class="text-xs font-bold text-purple-950">Active Face Enrollment Photo</div>
+                  <p class="text-[11px] text-purple-700">This photo template is used for mobile punch-in verification with cosine similarity matching.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between shrink-0">
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-semibold text-gray-700 transition-colors"
+              @click="isDetailModalOpen = false"
+            >
+              Close
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <!-- Edit Profile Shortcut -->
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors shadow-sm"
+              @click="openEditFromDetail"
+            >
+              <UIcon name="i-heroicons-pencil-square" class="w-4 h-4" />
+              <span>Edit Profile Details</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -492,16 +1615,90 @@
             </div>
 
             <!-- Approval Levels -->
-            <div class="space-y-1">
-              <label class="text-xs font-semibold text-gray-700">Approval Hierarchy Levels</label>
+            <div class="sm:col-span-2 space-y-2 pt-2 border-t border-gray-100">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <UIcon name="i-heroicons-user-group" class="w-4 h-4 text-emerald-600" />
+                  <label class="text-xs font-semibold text-gray-700">Approval Hierarchy Levels</label>
+                </div>
+                <span
+                  v-if="maxApprovalLevels > 0"
+                  class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  :class="maxApprovalLevels >= 3 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'"
+                >
+                  Max {{ maxApprovalLevels }} Level{{ maxApprovalLevels > 1 ? 's' : '' }} Available
+                </span>
+                <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                  No Approvers in Hierarchy
+                </span>
+              </div>
+
               <select
                 v-model.number="editForm.approval_levels"
-                class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer"
+                :disabled="maxApprovalLevels === 0"
+                class="w-full px-3 py-2 rounded-xl border text-gray-900 text-xs focus:outline-none transition-all cursor-pointer"
+                :class="maxApprovalLevels === 0 ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-200 focus:bg-white focus:border-emerald-500'"
               >
-                <option :value="1">1 Level (Direct Manager)</option>
-                <option :value="2">2 Levels (Manager + Head of Dept)</option>
-                <option :value="3">3 Levels (Manager + HOD + Executive)</option>
+                <template v-if="maxApprovalLevels === 0">
+                  <option :value="1" disabled>0 Managers in Hierarchy (Cannot assign approval levels)</option>
+                </template>
+                <template v-else>
+                  <option
+                    v-for="lvl in maxApprovalLevels"
+                    :key="lvl"
+                    :value="lvl"
+                  >
+                    {{ getApprovalLevelLabel(lvl) }}
+                  </option>
+                </template>
               </select>
+
+              <!-- Hierarchy Approvers Chain Preview -->
+              <div v-if="availableHierarchyApprovers.length > 0" class="p-3 rounded-xl bg-gray-50 border border-gray-200/80 space-y-2 text-[11px]">
+                <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center justify-between">
+                  <span>Department Approvers Chain</span>
+                  <span class="text-gray-500 font-mono">{{ availableHierarchyApprovers.length }} Level(s) in Tree</span>
+                </div>
+                <div class="space-y-1.5">
+                  <div
+                    v-for="(appr, idx) in availableHierarchyApprovers"
+                    :key="appr.managerId"
+                    class="flex items-center gap-2 p-1.5 rounded-lg transition-colors"
+                    :class="idx + 1 <= editForm.approval_levels ? 'bg-white border border-emerald-200/70 text-gray-900 font-semibold shadow-xs' : 'text-gray-400 opacity-60'"
+                  >
+                    <span
+                      class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                      :class="idx + 1 <= editForm.approval_levels ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-500'"
+                    >
+                      L{{ appr.level }}
+                    </span>
+                    <span class="truncate">
+                      {{ appr.managerName }}
+                      <span class="text-[10px] text-gray-500 font-normal">({{ appr.departmentName }})</span>
+                    </span>
+                    <span
+                      v-if="idx + 1 === editForm.approval_levels"
+                      class="ml-auto text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0"
+                    >
+                      Final Approver
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hierarchy limit notice -->
+              <p v-if="maxApprovalLevels > 0 && maxApprovalLevels < 3" class="text-[11px] text-amber-700 bg-amber-50/70 border border-amber-200/80 rounded-xl p-2.5 flex items-center gap-2">
+                <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  Hierarchy limit: Only <strong>{{ maxApprovalLevels }}</strong> manager level(s) exist in this department path. Level {{ maxApprovalLevels + 1 }} is unavailable to prevent requests getting stuck.
+                </span>
+              </p>
+              <p v-else-if="maxApprovalLevels === 0" class="text-[11px] text-rose-700 bg-rose-50/70 border border-rose-200/80 rounded-xl p-2.5 flex items-center gap-2">
+                <UIcon name="i-heroicons-exclamation-triangle" class="w-4 h-4 text-rose-600 shrink-0" />
+                <span>
+                  No manager is assigned to this department or its parents. Requests cannot be completed until a manager is designated in the hierarchy.
+                </span>
+              </p>
             </div>
           </div>
 
@@ -747,14 +1944,9 @@
     >
       <div class="relative w-full max-w-2xl bg-white border border-gray-200 rounded-3xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between pb-3 border-b border-gray-200">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center">
-              <UIcon name="i-heroicons-map-pin" class="w-5 h-5" />
-            </div>
-            <div>
-              <h3 class="text-sm font-bold text-gray-900">Work Schedule & Geofencing</h3>
-              <p class="text-[11px] text-gray-500">{{ activeEmp?.full_name }} ({{ activeEmp?.email }})</p>
-            </div>
+          <div>
+            <h3 class="text-base font-bold text-gray-900">Geofencing & Work Schedule</h3>
+            <p class="text-xs text-gray-500">{{ activeEmp?.full_name }} ({{ activeEmp?.email }})</p>
           </div>
           <button class="p-1 rounded-lg text-gray-400 hover:text-gray-700" @click="isScheduleModalOpen = false">
             <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
@@ -762,39 +1954,216 @@
         </div>
 
         <form @submit.prevent="saveSchedule" class="space-y-4">
-          <!-- Timings & Grace -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="space-y-1">
-              <label class="text-xs font-semibold text-gray-700">Shift Start Time *</label>
-              <input
-                v-model="scheduleForm.start_time"
-                type="time"
-                required
-                class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:border-blue-500 focus:outline-none cursor-pointer [color-scheme:light]"
-                @click="(e) => (e.target as HTMLInputElement).showPicker?.()"
-              />
+          <!-- Schedule Type & Working Hours Configuration Card -->
+          <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200 space-y-4">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                <UIcon name="i-heroicons-calendar-days" class="w-4 h-4 text-teal-600" />
+                <span>Schedule Type & Working Hours</span>
+              </label>
+              <span
+                class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
+                :class="scheduleForm.schedule_type === 'fixed' ? 'bg-teal-100 text-teal-800 border border-teal-200' : 'bg-purple-100 text-purple-800 border border-purple-200'"
+              >
+                {{ scheduleForm.schedule_type === 'fixed' ? 'Fixed Timings' : 'Flexible Timings' }}
+              </span>
             </div>
 
-            <div class="space-y-1">
-              <label class="text-xs font-semibold text-gray-700">Shift End Time *</label>
-              <input
-                v-model="scheduleForm.end_time"
-                type="time"
-                required
-                class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:border-blue-500 focus:outline-none cursor-pointer [color-scheme:light]"
-                @click="(e) => (e.target as HTMLInputElement).showPicker?.()"
-              />
+            <!-- Segmented Selector: Fixed vs Flexible -->
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                class="p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 cursor-pointer"
+                :class="scheduleForm.schedule_type === 'fixed' ? 'bg-white border-teal-500 shadow-sm ring-1 ring-teal-500' : 'bg-white/60 border-gray-200 hover:bg-white text-gray-600'"
+                @click="setScheduleType('fixed')"
+              >
+                <div class="p-1.5 rounded-lg shrink-0" :class="scheduleForm.schedule_type === 'fixed' ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-400'">
+                  <UIcon name="i-heroicons-clock" class="w-4 h-4" />
+                </div>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold" :class="scheduleForm.schedule_type === 'fixed' ? 'text-teal-900' : 'text-gray-800'">
+                    Fixed Schedule
+                  </div>
+                  <div class="text-[10px] text-gray-500 line-clamp-1">
+                    Start & end shift timings enforced
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 cursor-pointer"
+                :class="scheduleForm.schedule_type === 'flexible' ? 'bg-white border-purple-500 shadow-sm ring-1 ring-purple-500' : 'bg-white/60 border-gray-200 hover:bg-white text-gray-600'"
+                @click="setScheduleType('flexible')"
+              >
+                <div class="p-1.5 rounded-lg shrink-0" :class="scheduleForm.schedule_type === 'flexible' ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-400'">
+                  <UIcon name="i-heroicons-arrow-path-rounded-square" class="w-4 h-4" />
+                </div>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold" :class="scheduleForm.schedule_type === 'flexible' ? 'text-purple-900' : 'text-gray-800'">
+                    Flexible Schedule
+                  </div>
+                  <div class="text-[10px] text-gray-500 line-clamp-1">
+                    Timings ignored, direct min hours
+                  </div>
+                </div>
+              </button>
             </div>
 
-            <div class="space-y-1">
-              <label class="text-xs font-semibold text-gray-700">Punch Grace (Minutes)</label>
-              <input
-                v-model.number="scheduleForm.punch_in_grace"
-                type="number"
-                min="0"
-                max="60"
-                class="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:border-blue-500 focus:outline-none"
-              />
+            <!-- Timings & Hours Row -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1 items-start">
+              <!-- Shift Start Time -->
+              <div class="space-y-1.5 flex flex-col">
+                <div class="flex items-center justify-between min-h-[22px] gap-1">
+                  <label class="text-xs font-semibold truncate" :class="scheduleForm.schedule_type === 'fixed' ? 'text-gray-700' : 'text-gray-400'">
+                    Shift Start Time {{ scheduleForm.schedule_type === 'fixed' ? '*' : '' }}
+                  </label>
+                  <span
+                    v-if="scheduleForm.schedule_type === 'fixed'"
+                    class="text-[9px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 whitespace-nowrap"
+                  >
+                    Required
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap"
+                  >
+                    Ignored
+                  </span>
+                </div>
+                <input
+                  v-model="scheduleForm.start_time"
+                  type="time"
+                  :disabled="scheduleForm.schedule_type === 'flexible'"
+                  :required="scheduleForm.schedule_type === 'fixed'"
+                  class="w-full h-[38px] px-3 rounded-xl border text-xs focus:outline-none transition-all font-mono [color-scheme:light]"
+                  :class="[
+                    scheduleForm.schedule_type === 'fixed'
+                      ? 'bg-white border-gray-200 text-gray-900 focus:border-teal-500 cursor-pointer shadow-sm'
+                      : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                  ]"
+                  @click="(e) => scheduleForm.schedule_type === 'fixed' && (e.target as HTMLInputElement).showPicker?.()"
+                />
+              </div>
+
+              <!-- Shift End Time -->
+              <div class="space-y-1.5 flex flex-col">
+                <div class="flex items-center justify-between min-h-[22px] gap-1">
+                  <label class="text-xs font-semibold truncate" :class="scheduleForm.schedule_type === 'fixed' ? 'text-gray-700' : 'text-gray-400'">
+                    Shift End Time {{ scheduleForm.schedule_type === 'fixed' ? '*' : '' }}
+                  </label>
+                  <span
+                    v-if="scheduleForm.schedule_type === 'fixed'"
+                    class="text-[9px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 whitespace-nowrap"
+                  >
+                    Required
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap"
+                  >
+                    Ignored
+                  </span>
+                </div>
+                <input
+                  v-model="scheduleForm.end_time"
+                  type="time"
+                  :disabled="scheduleForm.schedule_type === 'flexible'"
+                  :required="scheduleForm.schedule_type === 'fixed'"
+                  class="w-full h-[38px] px-3 rounded-xl border text-xs focus:outline-none transition-all font-mono [color-scheme:light]"
+                  :class="[
+                    scheduleForm.schedule_type === 'fixed'
+                      ? 'bg-white border-gray-200 text-gray-900 focus:border-teal-500 cursor-pointer shadow-sm'
+                      : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                  ]"
+                  @click="(e) => scheduleForm.schedule_type === 'fixed' && (e.target as HTMLInputElement).showPicker?.()"
+                />
+              </div>
+
+              <!-- Min Work Hours -->
+              <div class="space-y-1.5 flex flex-col">
+                <div class="flex items-center justify-between min-h-[22px] gap-1">
+                  <label class="text-xs font-semibold text-gray-700 truncate">Min Work Hours *</label>
+                  <span
+                    v-if="scheduleForm.schedule_type === 'fixed'"
+                    class="text-[9px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 whitespace-nowrap"
+                  >
+                    Auto
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 whitespace-nowrap"
+                  >
+                    Editable
+                  </span>
+                </div>
+                <div class="relative h-[38px]">
+                  <input
+                    v-model.number="scheduleForm.min_work_hours"
+                    type="number"
+                    step="0.5"
+                    min="1"
+                    max="24"
+                    required
+                    :readonly="scheduleForm.schedule_type === 'fixed'"
+                    class="w-full h-[38px] px-3 pr-16 rounded-xl border font-mono text-xs focus:outline-none transition-all"
+                    :class="[
+                      scheduleForm.schedule_type === 'fixed'
+                        ? 'bg-gray-100/80 border-gray-200 text-gray-700 cursor-not-allowed font-bold'
+                        : 'bg-white border-purple-300 text-purple-900 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 shadow-sm font-bold'
+                    ]"
+                  />
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-gray-400 select-none pointer-events-none">
+                    hrs/day
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Informational Notice -->
+            <div
+              v-if="scheduleForm.schedule_type === 'fixed'"
+              class="text-[11px] text-teal-700 bg-teal-50/70 border border-teal-200/80 rounded-xl px-3 py-2 flex items-center gap-2"
+            >
+              <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-teal-600 shrink-0" />
+              <span>
+                Fixed Schedule: Shift runs from <strong>{{ scheduleForm.start_time }}</strong> to <strong>{{ scheduleForm.end_time }}</strong>. Minimum required hours dynamically computed as <strong>{{ scheduleForm.min_work_hours }} hrs/day</strong>.
+              </span>
+            </div>
+            <div
+              v-else
+              class="text-[11px] text-purple-700 bg-purple-50/70 border border-purple-200/80 rounded-xl px-3 py-2 flex items-center gap-2"
+            >
+              <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-purple-600 shrink-0" />
+              <span>
+                Flexible Schedule: Shift start and end timings are <strong>ignored</strong>. Minimum work hours can be adjusted directly (currently <strong>{{ scheduleForm.min_work_hours }} hrs/day</strong>).
+              </span>
+            </div>
+
+            <!-- Grace Period & Shift Pattern Sub-row -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-gray-200/70">
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-gray-700">Punch-in Grace (Minutes)</label>
+                <input
+                  v-model.number="scheduleForm.punch_in_grace"
+                  type="number"
+                  min="0"
+                  max="60"
+                  class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-900 text-xs focus:border-teal-500 focus:outline-none"
+                />
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-gray-700">Shift Pattern</label>
+                <select
+                  v-model="scheduleForm.shift_pattern"
+                  class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-900 text-xs focus:border-teal-500 focus:outline-none"
+                >
+                  <option value="day">Day Shift</option>
+                  <option value="night">Night Shift</option>
+                  <option value="rotational">Rotational</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -806,48 +2175,66 @@
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input v-model="scheduleForm.wfm_allowed" type="checkbox" class="sr-only peer" />
-              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500" />
+              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500" />
             </label>
           </div>
 
-          <!-- Office Geofencing -->
-          <div class="p-4 rounded-2xl bg-gray-50/70 border border-gray-200 space-y-3">
-            <div class="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-              <UIcon name="i-heroicons-building-office" class="w-4 h-4 text-emerald-600" />
-              <span>Office Geofence Location</span>
+          <!-- Office Geofence -->
+          <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="text-xs font-bold text-teal-800 flex items-center gap-1.5">
+                <UIcon name="i-heroicons-building-office" class="w-4 h-4 text-teal-600" />
+                <span>Office Coordinates & Perimeter</span>
+              </div>
+              <button
+                type="button"
+                class="text-[10px] text-teal-700 hover:underline font-bold"
+                @click="scheduleForm.office_location = systemConfigStore.officeLocation || '28.560247, 77.199301'"
+              >
+                Set Default HQ
+              </button>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="space-y-1">
-                <label class="text-[11px] text-gray-600">Office GPS (Lat, Long)</label>
+                <label class="text-[11px] text-gray-600">Office Coordinates (Lat, Long)</label>
                 <input
                   v-model="scheduleForm.office_location"
                   type="text"
                   :placeholder="systemConfigStore.officeLocation || '28.560247, 77.199301'"
-                  class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-900 text-xs focus:border-emerald-500 focus:outline-none"
+                  class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-900 text-xs focus:border-teal-500 focus:outline-none"
                 />
               </div>
               <div class="space-y-1">
-                <label class="text-[11px] text-gray-600">Office Radius (meters)</label>
+                <label class="text-[11px] text-gray-600">Perimeter Radius (meters)</label>
                 <input
                   v-model.number="scheduleForm.office_radius"
                   type="number"
                   min="20"
                   max="5000"
-                  class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-900 text-xs focus:border-emerald-500 focus:outline-none"
+                  class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-900 text-xs focus:border-teal-500 focus:outline-none"
                 />
               </div>
             </div>
           </div>
 
-          <!-- Home Geofencing -->
-          <div class="p-4 rounded-2xl bg-gray-50/70 border border-gray-200 space-y-3">
-            <div class="text-xs font-bold text-blue-800 flex items-center gap-1.5">
-              <UIcon name="i-heroicons-home" class="w-4 h-4 text-blue-600" />
-              <span>Home Geofence Location (For WFM)</span>
+          <!-- Home Geofence -->
+          <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="text-xs font-bold text-blue-800 flex items-center gap-1.5">
+                <UIcon name="i-heroicons-home" class="w-4 h-4 text-blue-600" />
+                <span>Home Coordinates (Required for WFM)</span>
+              </div>
+              <button
+                type="button"
+                class="text-[10px] text-blue-700 hover:underline font-bold"
+                @click="captureDeviceGPS"
+              >
+                Capture Current GPS
+              </button>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="space-y-1">
-                <label class="text-[11px] text-gray-600">Home GPS (Lat, Long)</label>
+                <label class="text-[11px] text-gray-600">Home Coordinates (Lat, Long)</label>
                 <input
                   v-model="scheduleForm.home_location"
                   type="text"
@@ -856,7 +2243,7 @@
                 />
               </div>
               <div class="space-y-1">
-                <label class="text-[11px] text-gray-600">Home Radius (meters)</label>
+                <label class="text-[11px] text-gray-600">Perimeter Radius (meters)</label>
                 <input
                   v-model.number="scheduleForm.home_radius"
                   type="number"
@@ -869,18 +2256,18 @@
           </div>
 
           <!-- Field / Market Work Locations -->
-          <div class="p-4 rounded-2xl bg-gray-50/70 border border-gray-200 space-y-3">
+          <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200 space-y-3">
             <div class="flex items-center justify-between">
               <div class="text-xs font-bold text-purple-900 flex items-center gap-1.5">
                 <UIcon name="i-heroicons-map-pin" class="w-4 h-4 text-purple-600" />
-                <span>Field / Market Work Locations</span>
+                <span>Field / Market Work Locations (Named Areas)</span>
               </div>
               <span class="text-[10px] text-purple-700 font-semibold bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
                 Reverse Geocoded
               </span>
             </div>
             <p class="text-[11px] text-gray-500">
-              Permits staff to punch attendance in designated cities or localities when WFM is enabled.
+              Permits staff to punch attendance in designated cities or localities when WFM is enabled (matched by reverse geocoding placemarks).
             </p>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div class="sm:col-span-2 space-y-1">
@@ -904,6 +2291,46 @@
             </div>
           </div>
 
+          <!-- Weekdays Selection -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-gray-700">Working Weekdays</label>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="text-[11px] text-teal-700 hover:text-teal-800 font-semibold hover:underline"
+                  @click="scheduleForm.weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']"
+                >
+                  Mon-Fri
+                </button>
+                <span class="text-gray-300 text-xs">|</span>
+                <button
+                  type="button"
+                  class="text-[11px] text-teal-700 hover:text-teal-800 font-semibold hover:underline"
+                  @click="scheduleForm.weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']"
+                >
+                  Mon-Sat
+                </button>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="day in availableDays"
+                :key="day.key"
+                type="button"
+                class="px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all"
+                :class="[
+                  isWeekdaySelected(day.key)
+                    ? 'bg-teal-600 text-white border-teal-600 shadow-sm shadow-teal-500/20'
+                    : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                ]"
+                @click="toggleWeekday(day.key)"
+              >
+                {{ day.label }}
+              </button>
+            </div>
+          </div>
+
           <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-200">
             <button
               type="button"
@@ -915,7 +2342,7 @@
             <button
               type="submit"
               :disabled="isSavingSchedule"
-              class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-blue-500/20 disabled:opacity-50"
+              class="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-teal-500/20 disabled:opacity-50"
             >
               <UIcon v-if="isSavingSchedule" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
               <span>Save Schedule</span>
@@ -1096,7 +2523,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useAdminStore, type AdminEmployee } from "~/stores/admin";
 import { useSystemConfigStore } from "~/stores/systemConfig";
 
@@ -1120,6 +2547,18 @@ const isEditModalOpen = ref(false);
 const isPasswordModalOpen = ref(false);
 const isScheduleModalOpen = ref(false);
 const activeEmp = ref<AdminEmployee | null>(null);
+
+// Employee Details Modal State
+const isDetailModalOpen = ref(false);
+const selectedDetailEmp = ref<AdminEmployee | null>(null);
+const detailActiveTab = ref<"overview" | "job" | "schedule" | "family" | "documents" | "security">("overview");
+const detailProfileData = ref<any | null>(null);
+const isLoadingDetailProfile = ref(false);
+const detailFacePhotoUrl = ref<string | null>(null);
+const detailDocUrls = ref<Record<string, string | null>>({});
+const copySuccessMsg = ref("");
+let copyTimeout: any = null;
+const ALL_WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 // Forms
 const editForm = ref({
@@ -1160,6 +2599,77 @@ function validateEditCode(): boolean {
   }
   return !editCodeError.value;
 }
+
+interface HierarchyApprover {
+  level: number;
+  managerId: string;
+  managerName: string;
+  departmentName: string;
+}
+
+function getHierarchyApproversFor(deptId: number | null, employeeId?: string | null): HierarchyApprover[] {
+  if (!deptId) return [];
+
+  const approvers: HierarchyApprover[] = [];
+  const visitedDeptIds = new Set<number>();
+  const seenManagerIds = new Set<string>();
+
+  let currentDeptId: number | null = deptId;
+
+  while (currentDeptId && !visitedDeptIds.has(currentDeptId) && approvers.length < 3) {
+    visitedDeptIds.add(currentDeptId);
+    const dept = adminStore.departments.find((d) => d.id === currentDeptId);
+    if (!dept) break;
+
+    const managerId = dept.manager_id;
+    if (managerId && managerId !== employeeId && !seenManagerIds.has(managerId)) {
+      seenManagerIds.add(managerId);
+
+      const managerProfile = adminStore.employees.find((e) => e.id === managerId);
+      const managerName = dept.manager?.full_name || managerProfile?.full_name || "Department Manager";
+
+      approvers.push({
+        level: approvers.length + 1,
+        managerId,
+        managerName,
+        departmentName: dept.name,
+      });
+    }
+
+    currentDeptId = dept.parent_id;
+  }
+
+  return approvers;
+}
+
+const availableHierarchyApprovers = computed(() => {
+  return getHierarchyApproversFor(editForm.value.department, activeEmp.value?.id);
+});
+
+const maxApprovalLevels = computed(() => {
+  return availableHierarchyApprovers.value.length;
+});
+
+function getApprovalLevelLabel(lvl: number): string {
+  const appr = availableHierarchyApprovers.value[lvl - 1];
+  if (!appr) return `${lvl} Level${lvl > 1 ? "s" : ""}`;
+  if (lvl === 1) {
+    return `1 Level (${appr.managerName} - ${appr.departmentName})`;
+  } else if (lvl === 2) {
+    return `2 Levels (Up to: ${appr.managerName} - ${appr.departmentName})`;
+  } else {
+    return `3 Levels (Up to: ${appr.managerName} - ${appr.departmentName})`;
+  }
+}
+
+watch(
+  () => maxApprovalLevels.value,
+  (maxLvl) => {
+    if (maxLvl > 0 && editForm.value.approval_levels > maxLvl) {
+      editForm.value.approval_levels = maxLvl;
+    }
+  }
+);
 
 const enrolledPhotoUrl = ref<string | null>(null);
 const isResettingFace = ref(false);
@@ -1268,9 +2778,22 @@ const passwordError = ref("");
 const passwordSuccess = ref(false);
 const isSavingPassword = ref(false);
 
+const availableDays = [
+  { key: "monday", label: "Mon", full: "Monday" },
+  { key: "tuesday", label: "Tue", full: "Tuesday" },
+  { key: "wednesday", label: "Wed", full: "Wednesday" },
+  { key: "thursday", label: "Thu", full: "Thursday" },
+  { key: "friday", label: "Fri", full: "Friday" },
+  { key: "saturday", label: "Sat", full: "Saturday" },
+  { key: "sunday", label: "Sun", full: "Sunday" },
+];
+
 const scheduleForm = ref({
+  schedule_type: "fixed" as "fixed" | "flexible",
+  min_work_hours: 8,
   start_time: "09:30",
   end_time: "18:30",
+  shift_pattern: "day",
   punch_in_grace: 12,
   wfm_allowed: false,
   office_location: systemConfigStore.officeLocation || "28.560247, 77.199301",
@@ -1279,7 +2802,88 @@ const scheduleForm = ref({
   home_radius: 100,
   work_location_names: "delhi",
   work_location_radius: 100,
+  weekdays: ["monday", "tuesday", "wednesday", "thursday", "friday"] as string[],
 });
+
+function calculateHoursBetween(start: string, end: string): number {
+  if (!start || !end) return 0;
+  const startParts = start.split(":");
+  const endParts = end.split(":");
+  const sH = Number(startParts[0]);
+  const sM = Number(startParts[1]);
+  const eH = Number(endParts[0]);
+  const eM = Number(endParts[1]);
+  if (Number.isNaN(sH) || Number.isNaN(sM) || Number.isNaN(eH) || Number.isNaN(eM)) return 0;
+  let startMinutes = sH * 60 + sM;
+  let endMinutes = eH * 60 + eM;
+  if (endMinutes < startMinutes) {
+    endMinutes += 24 * 60; // Crosses midnight
+  }
+  const diffMinutes = endMinutes - startMinutes;
+  const hours = diffMinutes / 60;
+  return Math.round(hours * 10) / 10;
+}
+
+function setScheduleType(type: "fixed" | "flexible") {
+  scheduleForm.value.schedule_type = type;
+  if (type === "fixed") {
+    if (!scheduleForm.value.start_time) scheduleForm.value.start_time = "09:30";
+    if (!scheduleForm.value.end_time) scheduleForm.value.end_time = "18:30";
+    scheduleForm.value.min_work_hours = calculateHoursBetween(scheduleForm.value.start_time, scheduleForm.value.end_time);
+  } else {
+    if (!scheduleForm.value.min_work_hours || scheduleForm.value.min_work_hours <= 0) {
+      scheduleForm.value.min_work_hours = 8;
+    }
+  }
+}
+
+watch(
+  [() => scheduleForm.value.start_time, () => scheduleForm.value.end_time, () => scheduleForm.value.schedule_type],
+  ([newStart, newEnd, newType]) => {
+    if (newType === "fixed" && newStart && newEnd) {
+      scheduleForm.value.min_work_hours = calculateHoursBetween(newStart, newEnd);
+    }
+  }
+);
+
+function isWeekdaySelected(dayKey: string): boolean {
+  const target = dayKey.toLowerCase().trim();
+  return (scheduleForm.value.weekdays || []).some((d) => {
+    const s = String(d).toLowerCase().trim();
+    return s === target || s === target.slice(0, 3);
+  });
+}
+
+function toggleWeekday(dayKey: string) {
+  const target = dayKey.toLowerCase().trim();
+  const current = (scheduleForm.value.weekdays || []).map((d) => {
+    const s = String(d).toLowerCase().trim();
+    const matched = availableDays.find((day) => day.key === s || day.label.toLowerCase() === s);
+    return matched ? matched.key : s;
+  });
+
+  if (isWeekdaySelected(target)) {
+    scheduleForm.value.weekdays = current.filter((d) => d !== target);
+  } else {
+    scheduleForm.value.weekdays = [...current, target];
+  }
+}
+
+function captureDeviceGPS() {
+  if (!navigator.geolocation) {
+    alert("Geolocation is not supported by your browser");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      scheduleForm.value.home_location = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+    },
+    (err) => {
+      alert("GPS error: " + err.message);
+    }
+  );
+}
+
 
 const isSaving = ref(false);
 const isSavingSchedule = ref(false);
@@ -1372,6 +2976,12 @@ async function refreshData() {
 function openEditModal(emp: AdminEmployee) {
   activeEmp.value = emp;
   editCodeError.value = "";
+  const approvers = getHierarchyApproversFor(emp.department, emp.id);
+  const maxLvl = approvers.length;
+  let initialApprovalLevels = emp.approval_levels || 1;
+  if (maxLvl > 0 && initialApprovalLevels > maxLvl) {
+    initialApprovalLevels = maxLvl;
+  }
   editForm.value = {
     full_name: emp.full_name || "",
     employee_code: emp.employee_code || "",
@@ -1380,7 +2990,7 @@ function openEditModal(emp: AdminEmployee) {
     position: emp.position,
     employment_type: emp.employment_type || "full_time",
     date_of_joining: emp.date_of_joining || "",
-    approval_levels: emp.approval_levels || 1,
+    approval_levels: initialApprovalLevels,
     app_access: emp.app_access ?? true,
     web_access: emp.web_access ?? true,
     geofencing: emp.geofencing ?? true,
@@ -1394,6 +3004,12 @@ function openEditModal(emp: AdminEmployee) {
 async function saveProfileEdit() {
   if (!activeEmp.value) return;
   if (!validateEditCode()) return;
+  if (maxApprovalLevels.value > 0 && editForm.value.approval_levels > maxApprovalLevels.value) {
+    alert(
+      `Cannot set ${editForm.value.approval_levels} approval levels. Only ${maxApprovalLevels.value} manager level(s) exist in this department's hierarchy.`
+    );
+    return;
+  }
   isSaving.value = true;
   try {
     const { error } = await (supabase as any)
@@ -1481,9 +3097,34 @@ async function savePasswordReset() {
 function openScheduleModal(emp: AdminEmployee) {
   activeEmp.value = emp;
   const s = emp.work_schedule;
+
+  // Normalize existing weekdays array (handles lowercase, capitalized, or abbreviated days)
+  let loadedWeekdays: string[] = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+  if (Array.isArray(s?.weekdays) && s.weekdays.length > 0) {
+    loadedWeekdays = s.weekdays.map((d: string) => {
+      const lower = String(d).toLowerCase().trim();
+      const matched = availableDays.find(
+        (day) => day.key === lower || day.label.toLowerCase() === lower
+      );
+      return matched ? matched.key : lower;
+    });
+  }
+
+  const scheduleType = (s?.schedule_type?.toLowerCase() === "flexible" ? "flexible" : "fixed") as "fixed" | "flexible";
+  const startTime = s?.start_time ? s.start_time.slice(0, 5) : "09:30";
+  const endTime = s?.end_time ? s.end_time.slice(0, 5) : "18:30";
+
+  let minHours = s?.min_work_hours ?? 8;
+  if (scheduleType === "fixed") {
+    minHours = calculateHoursBetween(startTime, endTime);
+  }
+
   scheduleForm.value = {
-    start_time: s?.start_time ? s.start_time.slice(0, 5) : "09:30",
-    end_time: s?.end_time ? s.end_time.slice(0, 5) : "18:30",
+    schedule_type: scheduleType,
+    min_work_hours: minHours,
+    start_time: startTime,
+    end_time: endTime,
+    shift_pattern: s?.shift_pattern || "day",
     punch_in_grace: s?.punch_in_grace ?? 12,
     wfm_allowed: s?.wfm_allowed ?? false,
     office_location: s?.office_location || systemConfigStore.officeLocation || "28.560247, 77.199301",
@@ -1492,6 +3133,7 @@ function openScheduleModal(emp: AdminEmployee) {
     home_radius: s?.home_radius ?? 100,
     work_location_names: s?.work_location_names || "",
     work_location_radius: s?.work_location_radius ?? 100,
+    weekdays: loadedWeekdays,
   };
   isScheduleModalOpen.value = true;
 }
@@ -1501,11 +3143,16 @@ async function saveSchedule() {
   isSavingSchedule.value = true;
 
   try {
-    const scheduleData = {
+    const isFlexible = scheduleForm.value.schedule_type === "flexible";
+
+    const payload = {
       employee_id: activeEmp.value.id,
-      start_time: `${scheduleForm.value.start_time}:00`,
-      end_time: `${scheduleForm.value.end_time}:00`,
+      schedule_type: scheduleForm.value.schedule_type,
+      min_work_hours: scheduleForm.value.min_work_hours || 8,
+      start_time: isFlexible ? null : (scheduleForm.value.start_time ? `${scheduleForm.value.start_time}:00` : null),
+      end_time: isFlexible ? null : (scheduleForm.value.end_time ? `${scheduleForm.value.end_time}:00` : null),
       punch_in_grace: scheduleForm.value.punch_in_grace,
+      shift_pattern: scheduleForm.value.shift_pattern || "day",
       wfm_allowed: scheduleForm.value.wfm_allowed,
       office_location: scheduleForm.value.office_location,
       office_radius: scheduleForm.value.office_radius,
@@ -1513,9 +3160,7 @@ async function saveSchedule() {
       home_radius: scheduleForm.value.home_radius,
       work_location_names: scheduleForm.value.work_location_names ? scheduleForm.value.work_location_names.trim().toLowerCase() : null,
       work_location_radius: scheduleForm.value.work_location_radius || 100,
-      weekdays: activeEmp.value.work_schedule?.weekdays || ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"],
-      schedule_type: "fixed",
-      shift_pattern: "day",
+      weekdays: scheduleForm.value.weekdays.map((d) => String(d).toLowerCase().trim()),
       updated_at: new Date().toISOString(),
     };
 
@@ -1536,7 +3181,7 @@ async function saveSchedule() {
     if (targetScheduleId) {
       const { data: updated, error } = await (supabase as any)
         .from("work_schedules")
-        .update(scheduleData)
+        .update(payload)
         .eq("employee_id", activeEmp.value.id)
         .select();
 
@@ -1547,7 +3192,7 @@ async function saveSchedule() {
     } else {
       const { data: inserted, error } = await (supabase as any)
         .from("work_schedules")
-        .insert(scheduleData)
+        .insert(payload)
         .select()
         .single();
 
@@ -1630,6 +3275,180 @@ async function confirmToggleStatus() {
   } finally {
     isUpdatingStatus.value = false;
   }
+}
+
+function isDayScheduled(day: string): boolean {
+  const w = selectedDetailEmp.value?.work_schedule?.weekdays;
+  if (!Array.isArray(w)) return false;
+  return w.some((d: string) => d.toLowerCase().startsWith(day.toLowerCase().slice(0, 3)));
+}
+
+function normalizeEmergencyContacts(val: any): Array<{ name?: string; phone?: string; relation?: string }> {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === "object") return [val];
+  return [];
+}
+
+function formatDateOnly(dateStr?: string | null): string {
+  if (!dateStr) return "N/A";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function calculateAge(dobStr?: string | null): string {
+  if (!dobStr) return "";
+  try {
+    const birth = new Date(dobStr);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const m = now.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age > 0 ? `${age} yrs` : "";
+  } catch {
+    return "";
+  }
+}
+
+function calculateTenure(joiningDateStr?: string | null): string {
+  if (!joiningDateStr) return "N/A";
+  try {
+    const start = new Date(joiningDateStr);
+    const now = new Date();
+    let totalMonths = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+    if (totalMonths < 0) totalMonths = 0;
+    const years = Math.floor(totalMonths / 12);
+    const months = totalMonths % 12;
+
+    if (years === 0 && months === 0) return "Just joined";
+    if (years === 0) return `${months} mo${months === 1 ? "" : "s"}`;
+    if (months === 0) return `${years} yr${years === 1 ? "" : "s"}`;
+    return `${years} yr${years === 1 ? "" : "s"}, ${months} mo${months === 1 ? "" : "s"}`;
+  } catch {
+    return "N/A";
+  }
+}
+
+function calculateTotalNomineeShare(nominees: any): number {
+  if (!Array.isArray(nominees)) return 0;
+  return nominees.reduce((acc, curr) => acc + (Number(curr.share_percentage) || 0), 0);
+}
+
+function maskAadhaar(num?: string | null): string {
+  if (!num) return "-";
+  const cleaned = num.replace(/\D/g, "");
+  if (cleaned.length === 12) {
+    return `XXXX-XXXX-${cleaned.slice(8)}`;
+  }
+  return num;
+}
+
+function copyToClipboard(text?: string | null, label?: string) {
+  if (!text || text === "-") return;
+  navigator.clipboard?.writeText(text);
+  copySuccessMsg.value = `Copied ${label || "text"} to clipboard`;
+  clearTimeout(copyTimeout);
+  copyTimeout = setTimeout(() => {
+    copySuccessMsg.value = "";
+  }, 2500);
+}
+
+async function preloadDocumentUrls(details: any) {
+  if (!details) return;
+  const docFields: Record<string, string | null | undefined> = {
+    aadhaar_front: details.aadhaar_url,
+    aadhaar_back: details.aadhaar_back_url,
+    pan: details.pan_url,
+    passport: details.passport_url,
+    cancelled_cheque: details.cancelled_cheque_url,
+    passbook: details.passbook_url,
+  };
+
+  for (const [key, path] of Object.entries(docFields)) {
+    if (!path) continue;
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      detailDocUrls.value[key] = path;
+      continue;
+    }
+    supabase.storage
+      .from("profile-documents")
+      .createSignedUrl(path, 3600)
+      .then(({ data }) => {
+        if (data?.signedUrl) {
+          detailDocUrls.value[key] = data.signedUrl;
+        }
+      })
+      .catch(() => {});
+  }
+}
+
+async function openDetailModal(emp: AdminEmployee) {
+  selectedDetailEmp.value = emp;
+  detailActiveTab.value = "overview";
+  isDetailModalOpen.value = true;
+  detailProfileData.value = null;
+  detailFacePhotoUrl.value = null;
+  detailDocUrls.value = {};
+
+  if (emp.face_enrollment_photo) {
+    supabase.storage
+      .from("profile-documents")
+      .createSignedUrl(emp.face_enrollment_photo, 3600)
+      .then(({ data }) => {
+        if (data?.signedUrl) {
+          detailFacePhotoUrl.value = data.signedUrl;
+        }
+      })
+      .catch(() => {});
+  }
+
+  isLoadingDetailProfile.value = true;
+  try {
+    const { data, error } = await (supabase as any)
+      .from("profile_details")
+      .select("*")
+      .eq("user_id", emp.id)
+      .maybeSingle();
+
+    if (!error && data) {
+      detailProfileData.value = data;
+      preloadDocumentUrls(data);
+    }
+  } catch (err: any) {
+    console.error("Failed to load profile details for modal:", err);
+  } finally {
+    isLoadingDetailProfile.value = false;
+  }
+}
+
+function openEditFromDetail() {
+  if (!selectedDetailEmp.value) return;
+  const emp = selectedDetailEmp.value;
+  isDetailModalOpen.value = false;
+  openEditModal(emp);
+}
+
+function openScheduleFromDetail() {
+  if (!selectedDetailEmp.value) return;
+  const emp = selectedDetailEmp.value;
+  isDetailModalOpen.value = false;
+  openScheduleModal(emp);
+}
+
+function openPasswordFromDetail() {
+  if (!selectedDetailEmp.value) return;
+  const emp = selectedDetailEmp.value;
+  isDetailModalOpen.value = false;
+  openPasswordModal(emp);
 }
 
 onMounted(async () => {

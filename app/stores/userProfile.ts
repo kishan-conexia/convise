@@ -188,7 +188,7 @@ export const useUserProfileStore = defineStore("userProfile", {
 
       try {
         if (!supabase) {
-          throw new Error("Supabase client is not available.");
+          throw new Error("Service is not available.");
         }
 
         // Fetch user profile
