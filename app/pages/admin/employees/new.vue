@@ -336,17 +336,106 @@
               </select>
             </div>
 
-            <!-- Approval Levels -->
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-gray-700">Approval Hierarchy Levels</label>
-              <select
-                v-model="form.approvalLevels"
-                class="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:outline-none focus:border-emerald-500"
+            <!-- Approval Hierarchy Level with Dynamic Chain & Enforcement -->
+            <div class="space-y-2 md:col-span-2">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <UIcon name="i-heroicons-user-group" class="w-4 h-4 text-emerald-600" />
+                  <label class="text-xs font-semibold text-gray-700">Approval Hierarchy Levels</label>
+                </div>
+                <span
+                  v-if="maxApprovalLevels > 0"
+                  class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  :class="maxApprovalLevels >= 3 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'"
+                >
+                  Max {{ maxApprovalLevels }} Level{{ maxApprovalLevels > 1 ? 's' : '' }} Available
+                </span>
+                <span v-else-if="form.departmentId" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                  No Approvers in Hierarchy
+                </span>
+                <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
+                  Select Department First
+                </span>
+              </div>
+
+              <!-- When department is NOT selected yet -->
+              <div
+                v-if="!form.departmentId"
+                class="w-full px-3.5 py-2.5 rounded-xl bg-gray-100/80 border border-gray-200 text-gray-400 text-xs flex items-center gap-2 cursor-not-allowed select-none"
               >
-                <option :value="1">1 Level (Direct Manager)</option>
-                <option :value="2">2 Levels (Manager + Head of Dept)</option>
-                <option :value="3">3 Levels (Manager + HOD + Executive)</option>
-              </select>
+                <UIcon name="i-heroicons-building-office-2" class="w-4 h-4 text-gray-400 shrink-0" />
+                <span>Select a department above to determine available approvers</span>
+              </div>
+
+              <!-- When department IS selected -->
+              <template v-else>
+                <select
+                  v-model.number="form.approvalLevels"
+                  :disabled="maxApprovalLevels === 0"
+                  class="w-full px-3.5 py-2.5 rounded-xl border text-gray-900 text-xs focus:outline-none transition-all cursor-pointer"
+                  :class="maxApprovalLevels === 0 ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-200 focus:bg-white focus:border-emerald-500'"
+                >
+                  <template v-if="maxApprovalLevels === 0">
+                    <option :value="1" disabled>0 Managers in Hierarchy (Cannot assign approval levels)</option>
+                  </template>
+                  <template v-else>
+                    <option
+                      v-for="lvl in maxApprovalLevels"
+                      :key="lvl"
+                      :value="lvl"
+                    >
+                      {{ getApprovalLevelLabel(lvl) }}
+                    </option>
+                  </template>
+                </select>
+
+                <!-- Hierarchy Approvers Chain Preview -->
+                <div v-if="availableHierarchyApprovers.length > 0" class="p-3 rounded-xl bg-gray-50 border border-gray-200/80 space-y-2 text-[11px]">
+                  <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center justify-between">
+                    <span>Department Approvers Chain</span>
+                    <span class="text-gray-500 font-mono">{{ availableHierarchyApprovers.length }} Level(s) in Tree</span>
+                  </div>
+                  <div class="space-y-1.5">
+                    <div
+                      v-for="(appr, idx) in availableHierarchyApprovers"
+                      :key="appr.managerId"
+                      class="flex items-center gap-2 p-1.5 rounded-lg transition-colors"
+                      :class="idx + 1 <= form.approvalLevels ? 'bg-white border border-emerald-200/70 text-gray-900 font-semibold shadow-xs' : 'text-gray-400 opacity-60'"
+                    >
+                      <span
+                        class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                        :class="idx + 1 <= form.approvalLevels ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-500'"
+                      >
+                        L{{ appr.level }}
+                      </span>
+                      <span class="truncate">
+                        {{ appr.managerName }}
+                        <span class="text-[10px] text-gray-500 font-normal">({{ appr.departmentName }})</span>
+                      </span>
+                      <span
+                        v-if="idx + 1 === form.approvalLevels"
+                        class="ml-auto text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0"
+                      >
+                        Final Approver
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Hierarchy limit notice -->
+                <p v-if="maxApprovalLevels > 0 && maxApprovalLevels < 3" class="text-[11px] text-amber-700 bg-amber-50/70 border border-amber-200/80 rounded-xl p-2.5 flex items-center gap-2">
+                  <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    Hierarchy limit: Only <strong>{{ maxApprovalLevels }}</strong> manager level(s) exist in this department path. Level {{ maxApprovalLevels + 1 }} is unavailable to prevent requests getting stuck.
+                  </span>
+                </p>
+                <p v-else-if="maxApprovalLevels === 0" class="text-[11px] text-rose-700 bg-rose-50/70 border border-rose-200/80 rounded-xl p-2.5 flex items-center gap-2">
+                  <UIcon name="i-heroicons-exclamation-triangle" class="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>
+                    No manager is assigned to this department or its parents. Requests cannot be completed until a manager is designated in the hierarchy.
+                  </span>
+                </p>
+              </template>
             </div>
 
             <!-- Address Details -->
@@ -473,78 +562,240 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <!-- Schedule Type -->
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-gray-700">Schedule Type *</label>
-              <select
-                v-model="form.schedule.scheduleType"
-                required
-                class="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+          <!-- Schedule Type & Working Hours Configuration Card -->
+          <div class="p-4 sm:p-5 rounded-2xl bg-gray-50 border border-gray-200 space-y-4">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                <UIcon name="i-heroicons-calendar-days" class="w-4 h-4 text-teal-600" />
+                <span>Schedule Type & Working Hours</span>
+              </label>
+              <span
+                class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
+                :class="form.schedule.scheduleType === 'fixed' ? 'bg-teal-100 text-teal-800 border border-teal-200' : 'bg-purple-100 text-purple-800 border border-purple-200'"
               >
-                <option value="fixed">Fixed</option>
-                <option value="flexible">Flexible</option>
-              </select>
+                {{ form.schedule.scheduleType === 'fixed' ? 'Fixed Timings' : 'Flexible Timings' }}
+              </span>
             </div>
 
-            <!-- Start Time -->
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-gray-700">Shift Start Time *</label>
-              <input
-                v-model="form.schedule.startTime"
-                type="time"
-                required
-                class="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:outline-none focus:border-emerald-500 font-mono cursor-pointer [color-scheme:light]"
-                @click="(e) => (e.target as HTMLInputElement).showPicker?.()"
-              />
-            </div>
-
-            <!-- End Time -->
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-gray-700">Shift End Time *</label>
-              <input
-                v-model="form.schedule.endTime"
-                type="time"
-                required
-                class="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:outline-none focus:border-emerald-500 font-mono cursor-pointer [color-scheme:light]"
-                @click="(e) => (e.target as HTMLInputElement).showPicker?.()"
-              />
-            </div>
-
-            <!-- Grace Period -->
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-gray-700">Punch-in Grace (Minutes)</label>
-              <input
-                v-model.number="form.schedule.punchInGrace"
-                type="number"
-                min="0"
-                max="60"
-                class="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:outline-none focus:border-emerald-500 font-mono"
-              />
-            </div>
-
-            <!-- Shift Pattern -->
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-gray-700">Shift Pattern</label>
-              <select
-                v-model="form.schedule.shiftPattern"
-                class="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:outline-none focus:border-emerald-500"
+            <!-- Segmented Selector: Fixed vs Flexible -->
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                class="p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 cursor-pointer"
+                :class="form.schedule.scheduleType === 'fixed' ? 'bg-white border-teal-500 shadow-sm ring-1 ring-teal-500' : 'bg-white/60 border-gray-200 hover:bg-white text-gray-600'"
+                @click="setScheduleType('fixed')"
               >
-                <option value="day">Day Shift</option>
-                <option value="night">Night Shift</option>
-                <option value="rotational">Rotational</option>
-              </select>
+                <div class="p-1.5 rounded-lg shrink-0" :class="form.schedule.scheduleType === 'fixed' ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-400'">
+                  <UIcon name="i-heroicons-clock" class="w-4 h-4" />
+                </div>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold" :class="form.schedule.scheduleType === 'fixed' ? 'text-teal-900' : 'text-gray-800'">
+                    Fixed Schedule
+                  </div>
+                  <div class="text-[10px] text-gray-500 line-clamp-1">
+                    Start & end shift timings enforced
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 cursor-pointer"
+                :class="form.schedule.scheduleType === 'flexible' ? 'bg-white border-purple-500 shadow-sm ring-1 ring-purple-500' : 'bg-white/60 border-gray-200 hover:bg-white text-gray-600'"
+                @click="setScheduleType('flexible')"
+              >
+                <div class="p-1.5 rounded-lg shrink-0" :class="form.schedule.scheduleType === 'flexible' ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-400'">
+                  <UIcon name="i-heroicons-arrow-path-rounded-square" class="w-4 h-4" />
+                </div>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold" :class="form.schedule.scheduleType === 'flexible' ? 'text-purple-900' : 'text-gray-800'">
+                    Flexible Schedule
+                  </div>
+                  <div class="text-[10px] text-gray-500 line-clamp-1">
+                    Timings ignored, direct min hours
+                  </div>
+                </div>
+              </button>
             </div>
 
-            <!-- Min Work Hours -->
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-gray-700">Min Work Hours (for Full Day)</label>
-              <input
-                v-model.number="form.schedule.minWorkHours"
-                type="number"
-                step="0.5"
-                class="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-xs focus:bg-white focus:outline-none focus:border-emerald-500 font-mono"
-              />
+            <!-- Timings & Hours Row -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1 items-start">
+              <!-- Shift Start Time -->
+              <div class="space-y-1.5 flex flex-col">
+                <div class="flex items-center justify-between min-h-[22px] gap-1">
+                  <label class="text-xs font-semibold truncate" :class="form.schedule.scheduleType === 'fixed' ? 'text-gray-700' : 'text-gray-400'">
+                    Shift Start Time {{ form.schedule.scheduleType === 'fixed' ? '*' : '' }}
+                  </label>
+                  <span
+                    v-if="form.schedule.scheduleType === 'fixed'"
+                    class="text-[9px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 whitespace-nowrap"
+                  >
+                    Required
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap"
+                  >
+                    Ignored
+                  </span>
+                </div>
+                <input
+                  v-model="form.schedule.startTime"
+                  type="time"
+                  :disabled="form.schedule.scheduleType === 'flexible'"
+                  :required="form.schedule.scheduleType === 'fixed'"
+                  class="w-full h-[38px] px-3 rounded-xl border text-xs focus:outline-none transition-all font-mono [color-scheme:light]"
+                  :class="[
+                    form.schedule.scheduleType === 'fixed'
+                      ? 'bg-white border-gray-200 text-gray-900 focus:border-teal-500 cursor-pointer shadow-sm'
+                      : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                  ]"
+                  @click="(e) => form.schedule.scheduleType === 'fixed' && (e.target as HTMLInputElement).showPicker?.()"
+                />
+              </div>
+
+              <!-- Shift End Time -->
+              <div class="space-y-1.5 flex flex-col">
+                <div class="flex items-center justify-between min-h-[22px] gap-1">
+                  <label class="text-xs font-semibold truncate" :class="form.schedule.scheduleType === 'fixed' ? 'text-gray-700' : 'text-gray-400'">
+                    Shift End Time {{ form.schedule.scheduleType === 'fixed' ? '*' : '' }}
+                  </label>
+                  <span
+                    v-if="form.schedule.scheduleType === 'fixed'"
+                    class="text-[9px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 whitespace-nowrap"
+                  >
+                    Required
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap"
+                  >
+                    Ignored
+                  </span>
+                </div>
+                <input
+                  v-model="form.schedule.endTime"
+                  type="time"
+                  :disabled="form.schedule.scheduleType === 'flexible'"
+                  :required="form.schedule.scheduleType === 'fixed'"
+                  class="w-full h-[38px] px-3 rounded-xl border text-xs focus:outline-none transition-all font-mono [color-scheme:light]"
+                  :class="[
+                    form.schedule.scheduleType === 'fixed'
+                      ? 'bg-white border-gray-200 text-gray-900 focus:border-teal-500 cursor-pointer shadow-sm'
+                      : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                  ]"
+                  @click="(e) => form.schedule.scheduleType === 'fixed' && (e.target as HTMLInputElement).showPicker?.()"
+                />
+              </div>
+
+              <!-- Min Work Hours -->
+              <div class="space-y-1.5 flex flex-col">
+                <div class="flex items-center justify-between min-h-[22px] gap-1">
+                  <label class="text-xs font-semibold text-gray-700 truncate">Min Work Hours *</label>
+                  <span
+                    v-if="form.schedule.scheduleType === 'fixed'"
+                    class="text-[9px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 whitespace-nowrap"
+                  >
+                    Auto
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 whitespace-nowrap"
+                  >
+                    Editable
+                  </span>
+                </div>
+                <!-- Single Cohesive Hours & Minutes Field -->
+                <div
+                  class="w-full h-[38px] rounded-xl border flex items-center overflow-hidden transition-all"
+                  :class="[
+                    form.schedule.scheduleType === 'fixed'
+                      ? 'bg-gray-100/80 border-gray-200 text-gray-700 cursor-not-allowed'
+                      : 'bg-white border-purple-300 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500 shadow-sm'
+                  ]"
+                >
+                  <!-- Hours -->
+                  <div class="relative flex-1 h-full flex items-center">
+                    <input
+                      v-model.number="scheduleFlexibleHours"
+                      type="number"
+                      min="0"
+                      max="24"
+                      :readonly="form.schedule.scheduleType === 'fixed'"
+                      title="Work Hours"
+                      placeholder="0"
+                      class="w-full h-full pl-3 pr-8 bg-transparent font-mono text-xs font-bold text-center focus:outline-none"
+                      :class="form.schedule.scheduleType === 'fixed' ? 'text-gray-700 cursor-not-allowed' : 'text-purple-900'"
+                    />
+                    <span class="absolute right-2 text-[11px] font-semibold text-gray-400 select-none pointer-events-none">hrs</span>
+                  </div>
+
+                  <span class="text-gray-300 font-bold select-none">•</span>
+
+                  <!-- Minutes -->
+                  <div class="relative flex-1 h-full flex items-center">
+                    <input
+                      v-model.number="scheduleFlexibleMinutes"
+                      type="number"
+                      min="0"
+                      max="59"
+                      step="5"
+                      :readonly="form.schedule.scheduleType === 'fixed'"
+                      title="Work Minutes"
+                      placeholder="0"
+                      class="w-full h-full pl-3 pr-8 bg-transparent font-mono text-xs font-bold text-center focus:outline-none"
+                      :class="form.schedule.scheduleType === 'fixed' ? 'text-gray-700 cursor-not-allowed' : 'text-purple-900'"
+                    />
+                    <span class="absolute right-2 text-[11px] font-semibold text-gray-400 select-none pointer-events-none">min</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Informational Notice -->
+            <div
+              v-if="form.schedule.scheduleType === 'fixed'"
+              class="text-[11px] text-teal-700 bg-teal-50/70 border border-teal-200/80 rounded-xl px-3 py-2 flex items-center gap-2"
+            >
+              <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-teal-600 shrink-0" />
+              <span>
+                Fixed Schedule: Shift runs from <strong>{{ form.schedule.startTime }}</strong> to <strong>{{ form.schedule.endTime }}</strong>. Minimum required hours dynamically computed as <strong>{{ formatHoursToHuman(form.schedule.minWorkHours) }}</strong> (after subtracting {{ form.schedule.punchInGrace || 0 }}m punch-in grace).
+              </span>
+            </div>
+            <div
+              v-else
+              class="text-[11px] text-purple-700 bg-purple-50/70 border border-purple-200/80 rounded-xl px-3 py-2 flex items-center gap-2"
+            >
+              <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-purple-600 shrink-0" />
+              <span>
+                Flexible Schedule: Shift start and end timings are <strong>ignored</strong>. Minimum work hours can be adjusted directly (currently <strong>{{ formatHoursToHuman(form.schedule.minWorkHours) }}</strong>).
+              </span>
+            </div>
+
+            <!-- Grace Period & Shift Pattern Sub-row -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-gray-200/70">
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-gray-700">Punch-in Grace (Minutes)</label>
+                <input
+                  v-model.number="form.schedule.punchInGrace"
+                  type="number"
+                  min="0"
+                  max="60"
+                  class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-900 text-xs focus:border-teal-500 focus:outline-none font-mono"
+                />
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-gray-700">Shift Pattern</label>
+                <select
+                  v-model="form.schedule.shiftPattern"
+                  class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-900 text-xs focus:border-teal-500 focus:outline-none"
+                >
+                  <option value="day">Day Shift</option>
+                  <option value="night">Night Shift</option>
+                  <option value="rotational">Rotational</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -837,7 +1088,7 @@ const form = reactive({
     punchInGrace: 12,
     shiftPattern: "day",
     scheduleType: "fixed",
-    minWorkHours: 8,
+    minWorkHours: 8.8,
     maxWorkHours: 12,
     weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     officeLocation: systemConfigStore.officeLocation || "28.560247, 77.199301",
@@ -1026,6 +1277,189 @@ const filteredPositions = computed(() => {
   return filtered.length > 0 ? filtered : adminStore.positions;
 });
 
+interface HierarchyApprover {
+  level: number;
+  managerId: string;
+  managerName: string;
+  departmentName: string;
+}
+
+function getHierarchyApproversFor(deptId: number | null): HierarchyApprover[] {
+  if (!deptId) return [];
+
+  const approvers: HierarchyApprover[] = [];
+  const visitedDeptIds = new Set<number>();
+  const seenManagerIds = new Set<string>();
+
+  let currentDeptId: number | null = deptId;
+
+  while (currentDeptId && !visitedDeptIds.has(currentDeptId) && approvers.length < 3) {
+    visitedDeptIds.add(currentDeptId);
+    const dept = adminStore.departments.find((d) => d.id === currentDeptId);
+    if (!dept) break;
+
+    const managerId = dept.manager_id;
+    if (managerId && !seenManagerIds.has(managerId)) {
+      seenManagerIds.add(managerId);
+
+      const managerProfile = adminStore.employees.find((e) => e.id === managerId);
+      const managerName = dept.manager?.full_name || managerProfile?.full_name || "Department Manager";
+
+      approvers.push({
+        level: approvers.length + 1,
+        managerId,
+        managerName,
+        departmentName: dept.name,
+      });
+    }
+
+    currentDeptId = dept.parent_id;
+  }
+
+  return approvers;
+}
+
+const availableHierarchyApprovers = computed(() => {
+  return getHierarchyApproversFor(form.departmentId);
+});
+
+const maxApprovalLevels = computed(() => {
+  return availableHierarchyApprovers.value.length;
+});
+
+function getApprovalLevelLabel(lvl: number): string {
+  const appr = availableHierarchyApprovers.value[lvl - 1];
+  if (!appr) return `${lvl} Level${lvl > 1 ? "s" : ""}`;
+  if (lvl === 1) {
+    return `1 Level (${appr.managerName} - ${appr.departmentName})`;
+  } else if (lvl === 2) {
+    return `2 Levels (Up to: ${appr.managerName} - ${appr.departmentName})`;
+  } else {
+    return `3 Levels (Up to: ${appr.managerName} - ${appr.departmentName})`;
+  }
+}
+
+watch(
+  () => form.departmentId,
+  (newDeptId) => {
+    if (form.positionId) {
+      const pos = adminStore.positions.find((p) => p.id === form.positionId);
+      if (pos?.main_department_id && pos.main_department_id !== newDeptId) {
+        form.positionId = null;
+      }
+    }
+    const maxLvl = getHierarchyApproversFor(newDeptId).length;
+    if (maxLvl > 0) {
+      if (form.approvalLevels > maxLvl || form.approvalLevels === 0) {
+        form.approvalLevels = maxLvl;
+      }
+    } else {
+      form.approvalLevels = 1;
+    }
+  }
+);
+
+watch(
+  () => maxApprovalLevels.value,
+  (maxLvl) => {
+    if (maxLvl > 0 && form.approvalLevels > maxLvl) {
+      form.approvalLevels = maxLvl;
+    }
+  }
+);
+
+function formatHoursToHuman(decimalHours: number | null | undefined): string {
+  if (decimalHours == null || isNaN(decimalHours) || decimalHours <= 0) return "0 hrs 0 mins";
+  const totalMinutes = Math.round(decimalHours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (m === 0) return `${h} hr${h === 1 ? '' : 's'}`;
+  if (h === 0) return `${m} min${m === 1 ? '' : 's'}`;
+  return `${h} hr${h === 1 ? '' : 's'} ${m} min${m === 1 ? '' : 's'}`;
+}
+
+const scheduleFlexibleHours = computed({
+  get: () => {
+    if (!form.schedule.minWorkHours || form.schedule.minWorkHours <= 0) return 8;
+    const totalMinutes = Math.round(form.schedule.minWorkHours * 60);
+    return Math.floor(totalMinutes / 60);
+  },
+  set: (val: number) => {
+    if (form.schedule.scheduleType === 'fixed') return;
+    const h = Math.max(0, Math.min(24, Number(val) || 0));
+    const m = scheduleFlexibleMinutes.value;
+    const totalMinutes = h * 60 + m;
+    form.schedule.minWorkHours = Math.round((totalMinutes / 60) * 100) / 100;
+  },
+});
+
+const scheduleFlexibleMinutes = computed({
+  get: () => {
+    if (!form.schedule.minWorkHours || form.schedule.minWorkHours <= 0) return 0;
+    const totalMinutes = Math.round(form.schedule.minWorkHours * 60);
+    return totalMinutes % 60;
+  },
+  set: (val: number) => {
+    if (form.schedule.scheduleType === 'fixed') return;
+    const h = scheduleFlexibleHours.value;
+    const m = Math.max(0, Math.min(59, Number(val) || 0));
+    const totalMinutes = h * 60 + m;
+    form.schedule.minWorkHours = Math.round((totalMinutes / 60) * 100) / 100;
+  },
+});
+
+function calculateHoursBetween(start: string, end: string, punchInGraceMinutes = 0): number {
+  if (!start || !end) return 0;
+  const startParts = start.split(":");
+  const endParts = end.split(":");
+  const sH = Number(startParts[0]);
+  const sM = Number(startParts[1]);
+  const eH = Number(endParts[0]);
+  const eM = Number(endParts[1]);
+  if (Number.isNaN(sH) || Number.isNaN(sM) || Number.isNaN(eH) || Number.isNaN(eM)) return 0;
+  let startMinutes = sH * 60 + sM;
+  let endMinutes = eH * 60 + eM;
+  if (endMinutes < startMinutes) {
+    endMinutes += 24 * 60; // Crosses midnight
+  }
+  const diffMinutes = endMinutes - startMinutes;
+  const graceMinutes = Math.max(0, Number(punchInGraceMinutes) || 0);
+  const netMinutes = Math.max(0, diffMinutes - graceMinutes);
+  const hours = netMinutes / 60;
+  return Math.round(hours * 100) / 100;
+}
+
+function setScheduleType(type: "fixed" | "flexible") {
+  form.schedule.scheduleType = type;
+  if (type === "fixed") {
+    if (!form.schedule.startTime) form.schedule.startTime = "09:30";
+    if (!form.schedule.endTime) form.schedule.endTime = "18:30";
+    form.schedule.minWorkHours = calculateHoursBetween(
+      form.schedule.startTime,
+      form.schedule.endTime,
+      form.schedule.punchInGrace || 0
+    );
+  } else {
+    if (!form.schedule.minWorkHours || form.schedule.minWorkHours <= 0) {
+      form.schedule.minWorkHours = 8;
+    }
+  }
+}
+
+watch(
+  [
+    () => form.schedule.startTime,
+    () => form.schedule.endTime,
+    () => form.schedule.punchInGrace,
+    () => form.schedule.scheduleType,
+  ],
+  ([newStart, newEnd, newGrace, newType]) => {
+    if (newType === "fixed" && newStart && newEnd) {
+      form.schedule.minWorkHours = calculateHoursBetween(newStart, newEnd, newGrace || 0);
+    }
+  }
+);
+
 function toggleWeekday(day: string) {
   const idx = form.schedule.weekdays.indexOf(day);
   if (idx > -1) {
@@ -1073,9 +1507,16 @@ function validateAndNext() {
     }
   }
   if (currentStep.value === 3) {
-    if (!form.schedule.startTime || !form.schedule.endTime) {
-      toast.add({ title: "Please set shift start and end times", color: "error" });
-      return;
+    if (form.schedule.scheduleType === 'fixed') {
+      if (!form.schedule.startTime || !form.schedule.endTime) {
+        toast.add({ title: "Please set shift start and end times", color: "error" });
+        return;
+      }
+    } else {
+      if (!form.schedule.minWorkHours || form.schedule.minWorkHours <= 0) {
+        toast.add({ title: "Please set minimum work hours", color: "error" });
+        return;
+      }
     }
     if (!form.schedule.weekdays || form.schedule.weekdays.length === 0) {
       toast.add({ title: "Please select at least one active working day", color: "error" });
@@ -1132,8 +1573,12 @@ async function handleSubmit() {
         is_active: true,
       },
       schedule: {
-        start_time: form.schedule.startTime.includes(":") && form.schedule.startTime.split(":").length === 2 ? `${form.schedule.startTime}:00` : form.schedule.startTime,
-        end_time: form.schedule.endTime.includes(":") && form.schedule.endTime.split(":").length === 2 ? `${form.schedule.endTime}:00` : form.schedule.endTime,
+        start_time: form.schedule.scheduleType === "flexible"
+          ? null
+          : (form.schedule.startTime.includes(":") && form.schedule.startTime.split(":").length === 2 ? `${form.schedule.startTime}:00` : form.schedule.startTime),
+        end_time: form.schedule.scheduleType === "flexible"
+          ? null
+          : (form.schedule.endTime.includes(":") && form.schedule.endTime.split(":").length === 2 ? `${form.schedule.endTime}:00` : form.schedule.endTime),
         weekdays: form.schedule.weekdays.map((d: string) => {
           const map: Record<string, string> = {
             Mon: "monday",

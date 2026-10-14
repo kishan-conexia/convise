@@ -421,25 +421,49 @@
                     Editable
                   </span>
                 </div>
-                <div class="relative h-[38px]">
-                  <input
-                    v-model.number="form.min_work_hours"
-                    type="number"
-                    step="0.5"
-                    min="1"
-                    max="24"
-                    required
-                    :readonly="form.schedule_type === 'fixed'"
-                    class="w-full h-[38px] px-3 pr-16 rounded-xl border font-mono text-xs focus:outline-none transition-all"
-                    :class="[
-                      form.schedule_type === 'fixed'
-                        ? 'bg-gray-100/80 border-gray-200 text-gray-700 cursor-not-allowed font-bold'
-                        : 'bg-white border-purple-300 text-purple-900 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 shadow-sm font-bold'
-                    ]"
-                  />
-                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-gray-400 select-none pointer-events-none">
-                    hrs/day
-                  </span>
+                <!-- Single Cohesive Hours & Minutes Field -->
+                <div
+                  class="w-full h-[38px] rounded-xl border flex items-center overflow-hidden transition-all"
+                  :class="[
+                    form.schedule_type === 'fixed'
+                      ? 'bg-gray-100/80 border-gray-200 text-gray-700 cursor-not-allowed'
+                      : 'bg-white border-purple-300 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500 shadow-sm'
+                  ]"
+                >
+                  <!-- Hours -->
+                  <div class="relative flex-1 h-full flex items-center">
+                    <input
+                      v-model.number="scheduleFlexibleHours"
+                      type="number"
+                      min="0"
+                      max="24"
+                      :readonly="form.schedule_type === 'fixed'"
+                      title="Work Hours"
+                      placeholder="0"
+                      class="w-full h-full pl-3 pr-8 bg-transparent font-mono text-xs font-bold text-center focus:outline-none"
+                      :class="form.schedule_type === 'fixed' ? 'text-gray-700 cursor-not-allowed' : 'text-purple-900'"
+                    />
+                    <span class="absolute right-2 text-[11px] font-semibold text-gray-400 select-none pointer-events-none">hrs</span>
+                  </div>
+
+                  <span class="text-gray-300 font-bold select-none">•</span>
+
+                  <!-- Minutes -->
+                  <div class="relative flex-1 h-full flex items-center">
+                    <input
+                      v-model.number="scheduleFlexibleMinutes"
+                      type="number"
+                      min="0"
+                      max="59"
+                      step="5"
+                      :readonly="form.schedule_type === 'fixed'"
+                      title="Work Minutes"
+                      placeholder="0"
+                      class="w-full h-full pl-3 pr-8 bg-transparent font-mono text-xs font-bold text-center focus:outline-none"
+                      :class="form.schedule_type === 'fixed' ? 'text-gray-700 cursor-not-allowed' : 'text-purple-900'"
+                    />
+                    <span class="absolute right-2 text-[11px] font-semibold text-gray-400 select-none pointer-events-none">min</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -451,7 +475,7 @@
             >
               <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-teal-600 shrink-0" />
               <span>
-                Fixed Schedule: Shift runs from <strong>{{ form.start_time }}</strong> to <strong>{{ form.end_time }}</strong>. Minimum required hours dynamically computed as <strong>{{ form.min_work_hours }} hrs/day</strong>.
+                Fixed Schedule: Shift runs from <strong>{{ form.start_time }}</strong> to <strong>{{ form.end_time }}</strong>. Minimum required hours dynamically computed as <strong>{{ formatHoursToHuman(form.min_work_hours) }}</strong> (after subtracting {{ form.punch_in_grace || 0 }}m punch-in grace).
               </span>
             </div>
             <div
@@ -460,7 +484,7 @@
             >
               <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-purple-600 shrink-0" />
               <span>
-                Flexible Schedule: Shift start and end timings are <strong>ignored</strong>. Minimum work hours can be adjusted directly (currently <strong>{{ form.min_work_hours }} hrs/day</strong>).
+                Flexible Schedule: Shift start and end timings are <strong>ignored</strong>. Minimum work hours can be adjusted directly (currently <strong>{{ formatHoursToHuman(form.min_work_hours) }}</strong>).
               </span>
             </div>
 
@@ -789,7 +813,47 @@ function formatTime(val: string | null | undefined): string {
   return val.slice(0, 5);
 }
 
-function calculateHoursBetween(start: string, end: string): number {
+function formatHoursToHuman(decimalHours: number | null | undefined): string {
+  if (decimalHours == null || isNaN(decimalHours) || decimalHours <= 0) return "0 hrs 0 mins";
+  const totalMinutes = Math.round(decimalHours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (m === 0) return `${h} hr${h === 1 ? '' : 's'}`;
+  if (h === 0) return `${m} min${m === 1 ? '' : 's'}`;
+  return `${h} hr${h === 1 ? '' : 's'} ${m} min${m === 1 ? '' : 's'}`;
+}
+
+const scheduleFlexibleHours = computed({
+  get: () => {
+    if (!form.value.min_work_hours || form.value.min_work_hours <= 0) return 8;
+    const totalMinutes = Math.round(form.value.min_work_hours * 60);
+    return Math.floor(totalMinutes / 60);
+  },
+  set: (val: number) => {
+    if (form.value.schedule_type === 'fixed') return;
+    const h = Math.max(0, Math.min(24, Number(val) || 0));
+    const m = scheduleFlexibleMinutes.value;
+    const totalMinutes = h * 60 + m;
+    form.value.min_work_hours = Math.round((totalMinutes / 60) * 100) / 100;
+  },
+});
+
+const scheduleFlexibleMinutes = computed({
+  get: () => {
+    if (!form.value.min_work_hours || form.value.min_work_hours <= 0) return 0;
+    const totalMinutes = Math.round(form.value.min_work_hours * 60);
+    return totalMinutes % 60;
+  },
+  set: (val: number) => {
+    if (form.value.schedule_type === 'fixed') return;
+    const h = scheduleFlexibleHours.value;
+    const m = Math.max(0, Math.min(59, Number(val) || 0));
+    const totalMinutes = h * 60 + m;
+    form.value.min_work_hours = Math.round((totalMinutes / 60) * 100) / 100;
+  },
+});
+
+function calculateHoursBetween(start: string, end: string, punchInGraceMinutes = 0): number {
   if (!start || !end) return 0;
   const startParts = start.split(":");
   const endParts = end.split(":");
@@ -804,8 +868,10 @@ function calculateHoursBetween(start: string, end: string): number {
     endMinutes += 24 * 60; // Crosses midnight
   }
   const diffMinutes = endMinutes - startMinutes;
-  const hours = diffMinutes / 60;
-  return Math.round(hours * 10) / 10;
+  const graceMinutes = Math.max(0, Number(punchInGraceMinutes) || 0);
+  const netMinutes = Math.max(0, diffMinutes - graceMinutes);
+  const hours = netMinutes / 60;
+  return Math.round(hours * 100) / 100;
 }
 
 function setScheduleType(type: "fixed" | "flexible") {
@@ -813,7 +879,11 @@ function setScheduleType(type: "fixed" | "flexible") {
   if (type === "fixed") {
     if (!form.value.start_time) form.value.start_time = "09:30";
     if (!form.value.end_time) form.value.end_time = "18:30";
-    form.value.min_work_hours = calculateHoursBetween(form.value.start_time, form.value.end_time);
+    form.value.min_work_hours = calculateHoursBetween(
+      form.value.start_time,
+      form.value.end_time,
+      form.value.punch_in_grace || 0
+    );
   } else {
     if (!form.value.min_work_hours || form.value.min_work_hours <= 0) {
       form.value.min_work_hours = 8;
@@ -822,10 +892,15 @@ function setScheduleType(type: "fixed" | "flexible") {
 }
 
 watch(
-  [() => form.value.start_time, () => form.value.end_time, () => form.value.schedule_type],
-  ([newStart, newEnd, newType]) => {
+  [
+    () => form.value.start_time,
+    () => form.value.end_time,
+    () => form.value.punch_in_grace,
+    () => form.value.schedule_type,
+  ],
+  ([newStart, newEnd, newGrace, newType]) => {
     if (newType === "fixed" && newStart && newEnd) {
-      form.value.min_work_hours = calculateHoursBetween(newStart, newEnd);
+      form.value.min_work_hours = calculateHoursBetween(newStart, newEnd, newGrace || 0);
     }
   }
 );
@@ -893,10 +968,11 @@ function openScheduleModal(emp: AdminEmployee) {
   const scheduleType = (s?.schedule_type?.toLowerCase() === "flexible" ? "flexible" : "fixed") as "fixed" | "flexible";
   const startTime = s?.start_time ? s.start_time.slice(0, 5) : "09:30";
   const endTime = s?.end_time ? s.end_time.slice(0, 5) : "18:30";
+  const punchInGrace = Number(s?.punch_in_grace ?? 12);
 
   let minHours = s?.min_work_hours ?? 8;
   if (scheduleType === "fixed") {
-    minHours = calculateHoursBetween(startTime, endTime);
+    minHours = calculateHoursBetween(startTime, endTime, punchInGrace);
   }
 
   form.value = {
@@ -905,7 +981,7 @@ function openScheduleModal(emp: AdminEmployee) {
     start_time: startTime,
     end_time: endTime,
     shift_pattern: s?.shift_pattern || "day",
-    punch_in_grace: s?.punch_in_grace ?? 12,
+    punch_in_grace: punchInGrace,
     wfm_allowed: s?.wfm_allowed ?? false,
     office_location: s?.office_location || systemConfigStore.officeLocation || "28.560247, 77.199301",
     office_radius: s?.office_radius ?? 100,
