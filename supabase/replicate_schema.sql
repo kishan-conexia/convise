@@ -738,6 +738,11 @@ CREATE FUNCTION public.calculate_quotation_totals()
  RETURNS trigger
  LANGUAGE plpgsql
 AS $function$
+DECLARE
+  v_advance_months integer := 1;
+  v_advance_base numeric(10,2) := 0;
+  v_advance_tax numeric(10,2) := 0;
+  v_advance_total numeric(10,2) := 0;
 BEGIN
   -- Calculate one-time charges subtotal (EXCLUDES security deposit and monthly rental)
   NEW.onetime_subtotal := 
@@ -749,38 +754,68 @@ BEGIN
     COALESCE(NEW.other_charges, 0);
   
   -- Calculate discount (applied to one-time charges only)
-  IF NEW.discount_percentage > 0 THEN
+  IF COALESCE(NEW.discount_percentage, 0) > 0 AND NEW.onetime_subtotal > 0 THEN
     NEW.discount_amount := ROUND((NEW.onetime_subtotal * NEW.discount_percentage / 100), 2);
+  ELSE
+    NEW.discount_amount := 0;
   END IF;
   
-  -- Calculate taxable amount (one-time charges minus discount)
-  -- FIXED: Security deposit NOT included in taxable amount
-  NEW.taxable_amount := NEW.onetime_subtotal - COALESCE(NEW.discount_amount, 0);
+  IF NEW.discount_amount > NEW.onetime_subtotal THEN
+    NEW.discount_amount := NEW.onetime_subtotal;
+  END IF;
+  
+  -- Calculate taxable amount (minimum 0)
+  NEW.taxable_amount := GREATEST(0, NEW.onetime_subtotal - COALESCE(NEW.discount_amount, 0));
   
   -- Calculate GST (either CGST+SGST or IGST, not both)
-  IF NEW.cgst_percentage > 0 AND NEW.sgst_percentage > 0 THEN
-    -- Intra-state (CGST + SGST)
-    NEW.cgst_amount := ROUND((NEW.taxable_amount * NEW.cgst_percentage / 100), 2);
-    NEW.sgst_amount := ROUND((NEW.taxable_amount * NEW.sgst_percentage / 100), 2);
-    NEW.igst_amount := 0;
-    NEW.onetime_total_with_tax := NEW.taxable_amount + NEW.cgst_amount + NEW.sgst_amount;
-  ELSIF NEW.igst_percentage > 0 THEN
-    -- Inter-state (IGST)
-    NEW.igst_amount := ROUND((NEW.taxable_amount * NEW.igst_percentage / 100), 2);
+  IF NEW.taxable_amount > 0 THEN
+    IF COALESCE(NEW.cgst_percentage, 0) > 0 AND COALESCE(NEW.sgst_percentage, 0) > 0 THEN
+      NEW.cgst_amount := ROUND((NEW.taxable_amount * NEW.cgst_percentage / 100), 2);
+      NEW.sgst_amount := ROUND((NEW.taxable_amount * NEW.sgst_percentage / 100), 2);
+      NEW.igst_amount := 0;
+      NEW.onetime_total_with_tax := NEW.taxable_amount + NEW.cgst_amount + NEW.sgst_amount;
+    ELSIF COALESCE(NEW.igst_percentage, 0) > 0 THEN
+      NEW.igst_amount := ROUND((NEW.taxable_amount * NEW.igst_percentage / 100), 2);
+      NEW.cgst_amount := 0;
+      NEW.sgst_amount := 0;
+      NEW.onetime_total_with_tax := NEW.taxable_amount + NEW.igst_amount;
+    ELSE
+      NEW.cgst_amount := 0;
+      NEW.sgst_amount := 0;
+      NEW.igst_amount := 0;
+      NEW.onetime_total_with_tax := NEW.taxable_amount;
+    END IF;
+  ELSE
     NEW.cgst_amount := 0;
     NEW.sgst_amount := 0;
-    NEW.onetime_total_with_tax := NEW.taxable_amount + NEW.igst_amount;
-  ELSE
-    -- No tax
-    NEW.onetime_total_with_tax := NEW.taxable_amount;
+    NEW.igst_amount := 0;
+    NEW.onetime_total_with_tax := 0;
   END IF;
   
-  -- FIXED: Security deposit added separately (not taxed)
-  NEW.total_payable_now := NEW.onetime_total_with_tax + COALESCE(NEW.security_deposit, 0);
+  -- Calculate Advance Rental + GST if advance payment is required
+  IF COALESCE(NEW.advance_payment_required, false) = true AND COALESCE(NEW.monthly_rental, 0) > 0 THEN
+    v_advance_months := GREATEST(1, COALESCE(NEW.advance_payment_months, 1));
+    v_advance_base := ROUND((NEW.monthly_rental * v_advance_months), 2);
+    IF COALESCE(NEW.cgst_percentage, 0) > 0 AND COALESCE(NEW.sgst_percentage, 0) > 0 THEN
+      v_advance_tax := ROUND((v_advance_base * NEW.cgst_percentage / 100), 2) + ROUND((v_advance_base * NEW.sgst_percentage / 100), 2);
+    ELSIF COALESCE(NEW.igst_percentage, 0) > 0 THEN
+      v_advance_tax := ROUND((v_advance_base * NEW.igst_percentage / 100), 2);
+    ELSE
+      v_advance_tax := ROUND((v_advance_base * 18 / 100), 2);
+    END IF;
+    v_advance_total := v_advance_base + v_advance_tax;
+  ELSE
+    v_advance_total := 0;
+  END IF;
+
+  -- Total payable at activation: one-time total + security deposit + advance rental (minimum 0)
+  NEW.total_payable_now := GREATEST(0, NEW.onetime_total_with_tax + COALESCE(NEW.security_deposit, 0) + v_advance_total);
   
   -- Calculate total contract value (recurring charges only)
-  IF NEW.contract_period_months > 0 THEN
+  IF COALESCE(NEW.contract_period_months, 0) > 0 THEN
     NEW.total_contract_value := NEW.monthly_rental * NEW.contract_period_months;
+  ELSE
+    NEW.total_contract_value := NULL;
   END IF;
   
   RETURN NEW;
@@ -3587,7 +3622,7 @@ CREATE POLICY "Denied" ON public.profiles FOR DELETE USING (false);
 CREATE POLICY "Specific department manager can insert in the profiles" ON public.profiles FOR INSERT WITH CHECK (((id = auth.uid()) OR public.is_manager_of_specific_departments()));
 CREATE POLICY "Specific department manager can update in the profiles" ON public.profiles FOR UPDATE USING (((id = auth.uid()) OR public.is_manager_of_specific_departments()));
 CREATE POLICY "Viewable by everyone" ON public.profiles FOR SELECT USING (true);
-CREATE TABLE public.quotations (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, quotation_number text NOT NULL, created_at timestamp with time zone DEFAULT now() NOT NULL, updated_at timestamp with time zone DEFAULT now() NOT NULL, lead_id bigint NOT NULL, feasibility_id bigint, business_approval_id bigint, quotation_date date DEFAULT CURRENT_DATE, valid_until date, revision_number integer DEFAULT 1, parent_quotation_id bigint, prepared_by uuid NOT NULL, approved_by uuid, approved_at timestamp with time zone, customer_name text NOT NULL, customer_email text, customer_phone text, customer_address text, company_name text, gstin text, connection_type text NOT NULL, plan_name text NOT NULL, bandwidth text NOT NULL, service_type text, monthly_rental numeric(10,2) NOT NULL, installation_charges numeric(10,2) DEFAULT 0, equipment_charges numeric(10,2) DEFAULT 0, router_charges numeric(10,2) DEFAULT 0, ont_charges numeric(10,2) DEFAULT 0, static_ip_charges numeric(10,2) DEFAULT 0, other_charges numeric(10,2) DEFAULT 0, other_charges_description text, onetime_subtotal numeric(10,2), security_deposit numeric(10,2) DEFAULT 0, discount_percentage numeric(5,2) DEFAULT 0, discount_amount numeric(10,2) DEFAULT 0, discount_remarks text, taxable_amount numeric(10,2) NOT NULL, cgst_percentage numeric(5,2) DEFAULT 9, cgst_amount numeric(10,2), sgst_percentage numeric(5,2) DEFAULT 9, sgst_amount numeric(10,2), igst_percentage numeric(5,2) DEFAULT 18, igst_amount numeric(10,2), onetime_total_with_tax numeric(10,2) NOT NULL, total_payable_now numeric(10,2) NOT NULL, contract_period_months integer DEFAULT 12, total_contract_value numeric(12,2), payment_terms text, billing_cycle text DEFAULT 'monthly'::text, advance_payment_required boolean DEFAULT false, advance_payment_months integer, terms_and_conditions text, special_notes text, inclusions text[], exclusions text[], uptime_guarantee text, support_type text, response_time text, resolution_time text, status text DEFAULT 'draft'::text NOT NULL, sent_at timestamp with time zone, sent_by uuid, sent_to_email text, viewed_at timestamp with time zone, viewed_count integer DEFAULT 0, accepted_at timestamp with time zone, accepted_by_name text, acceptance_remarks text, rejected_at timestamp with time zone, rejection_reason text, rejection_remarks text, converted_to_order boolean DEFAULT false, order_id bigint, converted_at timestamp with time zone, attachments jsonb DEFAULT '[]'::jsonb, pdf_url text, is_final_quote boolean DEFAULT false, remarks text);
+CREATE TABLE public.quotations (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, quotation_number text NOT NULL, created_at timestamp with time zone DEFAULT now() NOT NULL, updated_at timestamp with time zone DEFAULT now() NOT NULL, lead_id bigint NOT NULL, feasibility_id bigint, business_approval_id bigint, quotation_date date DEFAULT CURRENT_DATE, valid_until date, revision_number integer DEFAULT 1, parent_quotation_id bigint, prepared_by uuid NOT NULL, approved_by uuid, approved_at timestamp with time zone, customer_name text NOT NULL, customer_email text, customer_phone text, customer_address text, company_name text, gstin text, connection_type text NOT NULL, plan_name text NOT NULL, bandwidth text NOT NULL, service_type text, monthly_rental numeric(10,2) NOT NULL, installation_charges numeric(10,2) DEFAULT 0, equipment_charges numeric(10,2) DEFAULT 0, router_charges numeric(10,2) DEFAULT 0, ont_charges numeric(10,2) DEFAULT 0, static_ip_charges numeric(10,2) DEFAULT 0, other_charges numeric(10,2) DEFAULT 0, other_charges_description text, onetime_subtotal numeric(10,2), security_deposit numeric(10,2) DEFAULT 0, discount_percentage numeric(5,2) DEFAULT 0, discount_amount numeric(10,2) DEFAULT 0, discount_remarks text, taxable_amount numeric(10,2) NOT NULL, cgst_percentage numeric(5,2) DEFAULT 9, cgst_amount numeric(10,2), sgst_percentage numeric(5,2) DEFAULT 9, sgst_amount numeric(10,2), igst_percentage numeric(5,2) DEFAULT 18, igst_amount numeric(10,2), onetime_total_with_tax numeric(10,2) NOT NULL, total_payable_now numeric(10,2) NOT NULL, contract_period_months integer DEFAULT 12, total_contract_value numeric(12,2), payment_terms text, billing_cycle text DEFAULT 'monthly'::text, advance_payment_required boolean DEFAULT false, advance_payment_months integer, terms_and_conditions text, special_notes text, inclusions text[], exclusions text[], uptime_guarantee text, support_type text, response_time text, resolution_time text, status text DEFAULT 'draft'::text NOT NULL, sent_at timestamp with time zone, sent_by uuid, sent_to_email text, viewed_at timestamp with time zone, viewed_count integer DEFAULT 0, accepted_at timestamp with time zone, accepted_by_name text, accepted_by_designation text, purchase_order_number text, acceptance_remarks text, rejected_at timestamp with time zone, rejection_reason text, rejection_remarks text, converted_to_order boolean DEFAULT false, order_id bigint, converted_at timestamp with time zone, attachments jsonb DEFAULT '[]'::jsonb, pdf_url text, is_final_quote boolean DEFAULT false, remarks text, acceptance_token uuid DEFAULT gen_random_uuid());
 COMMENT ON TABLE public.quotations IS 'Quotations/proposals generated for leads after feasibility approval. Supports revisions, tax calculations, and conversion tracking.';
 COMMENT ON COLUMN public.quotations.business_approval_id IS 'Links to business_approvals if this quotation required approval (e.g., special discount, custom pricing)';
 COMMENT ON COLUMN public.quotations.security_deposit IS 'Refundable deposit - NOT included in taxable amount, shown separately in total_payable_now';

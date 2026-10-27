@@ -148,15 +148,15 @@ Deno.serve(async (req) => {
 
     // 3. Insert Work Schedule (if provided)
     if (schedule) {
-      const formatTime = (t: string) => {
-        if (!t) return "10:00:00";
+      const formatTime = (t: string | undefined | null, fallback = "10:00:00") => {
+        if (!t) return fallback;
         return t.split(":").length === 2 ? `${t}:00` : t;
       };
 
       const schedulePayload = {
         employee_id: createdUserId,
-        start_time: formatTime(schedule.start_time),
-        end_time: formatTime(schedule.end_time),
+        start_time: formatTime(schedule.start_time, "10:00:00"),
+        end_time: formatTime(schedule.end_time, "18:00:00"),
         weekdays: schedule.weekdays && schedule.weekdays.length > 0
           ? schedule.weekdays
           : ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"],

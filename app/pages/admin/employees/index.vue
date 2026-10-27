@@ -2815,8 +2815,8 @@ const availableDays = [
 const scheduleForm = ref({
   schedule_type: "fixed" as "fixed" | "flexible",
   min_work_hours: 8,
-  start_time: "09:30",
-  end_time: "18:30",
+  start_time: "10:00",
+  end_time: "18:00",
   shift_pattern: "day",
   punch_in_grace: 12,
   wfm_allowed: false,
@@ -2893,14 +2893,16 @@ function calculateHoursBetween(start: string, end: string, punchInGraceMinutes =
 function setScheduleType(type: "fixed" | "flexible") {
   scheduleForm.value.schedule_type = type;
   if (type === "fixed") {
-    if (!scheduleForm.value.start_time) scheduleForm.value.start_time = "09:30";
-    if (!scheduleForm.value.end_time) scheduleForm.value.end_time = "18:30";
+    if (!scheduleForm.value.start_time) scheduleForm.value.start_time = "10:00";
+    if (!scheduleForm.value.end_time) scheduleForm.value.end_time = "18:00";
     scheduleForm.value.min_work_hours = calculateHoursBetween(
       scheduleForm.value.start_time,
       scheduleForm.value.end_time,
       scheduleForm.value.punch_in_grace || 0
     );
   } else {
+    scheduleForm.value.start_time = "10:00";
+    scheduleForm.value.end_time = "18:00";
     if (!scheduleForm.value.min_work_hours || scheduleForm.value.min_work_hours <= 0) {
       scheduleForm.value.min_work_hours = 8;
     }
@@ -3186,8 +3188,8 @@ function openScheduleModal(emp: AdminEmployee) {
   }
 
   const scheduleType = (s?.schedule_type?.toLowerCase() === "flexible" ? "flexible" : "fixed") as "fixed" | "flexible";
-  const startTime = s?.start_time ? s.start_time.slice(0, 5) : "09:30";
-  const endTime = s?.end_time ? s.end_time.slice(0, 5) : "18:30";
+  const startTime = s?.start_time ? s.start_time.slice(0, 5) : "10:00";
+  const endTime = s?.end_time ? s.end_time.slice(0, 5) : "18:00";
   const punchInGrace = Number(s?.punch_in_grace ?? 12);
 
   let minHours = s?.min_work_hours ?? 8;
@@ -3221,12 +3223,21 @@ async function saveSchedule() {
   try {
     const isFlexible = scheduleForm.value.schedule_type === "flexible";
 
+    const toDbTime = (timeStr?: string | null, fallback = "10:00:00"): string => {
+      if (!timeStr || !timeStr.trim()) return fallback;
+      const [h = "", m = "", s = ""] = timeStr.trim().split(":");
+      const hh = (h || "00").padStart(2, "0");
+      const mm = (m || "00").padStart(2, "0");
+      const ss = (s || "00").padStart(2, "0");
+      return `${hh}:${mm}:${ss}`;
+    };
+
     const payload = {
       employee_id: activeEmp.value.id,
       schedule_type: scheduleForm.value.schedule_type,
       min_work_hours: scheduleForm.value.min_work_hours || 8,
-      start_time: isFlexible ? null : (scheduleForm.value.start_time ? `${scheduleForm.value.start_time}:00` : null),
-      end_time: isFlexible ? null : (scheduleForm.value.end_time ? `${scheduleForm.value.end_time}:00` : null),
+      start_time: isFlexible ? "10:00:00" : toDbTime(scheduleForm.value.start_time, "10:00:00"),
+      end_time: isFlexible ? "18:00:00" : toDbTime(scheduleForm.value.end_time, "18:00:00"),
       punch_in_grace: scheduleForm.value.punch_in_grace,
       shift_pattern: scheduleForm.value.shift_pattern || "day",
       wfm_allowed: scheduleForm.value.wfm_allowed,

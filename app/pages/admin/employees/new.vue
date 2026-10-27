@@ -1574,11 +1574,11 @@ async function handleSubmit() {
       },
       schedule: {
         start_time: form.schedule.scheduleType === "flexible"
-          ? null
-          : (form.schedule.startTime.includes(":") && form.schedule.startTime.split(":").length === 2 ? `${form.schedule.startTime}:00` : form.schedule.startTime),
+          ? "10:00:00"
+          : (form.schedule.startTime.includes(":") && form.schedule.startTime.split(":").length === 2 ? `${form.schedule.startTime}:00` : (form.schedule.startTime || "10:00:00")),
         end_time: form.schedule.scheduleType === "flexible"
-          ? null
-          : (form.schedule.endTime.includes(":") && form.schedule.endTime.split(":").length === 2 ? `${form.schedule.endTime}:00` : form.schedule.endTime),
+          ? "18:00:00"
+          : (form.schedule.endTime.includes(":") && form.schedule.endTime.split(":").length === 2 ? `${form.schedule.endTime}:00` : (form.schedule.endTime || "18:00:00")),
         weekdays: form.schedule.weekdays.map((d: string) => {
           const map: Record<string, string> = {
             Mon: "monday",
